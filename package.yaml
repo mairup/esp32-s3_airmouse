@@ -1,0 +1,6 @@
+name: esp32-s3_airmouse
+description: "Prototype 0.0.1 - Minimal BLE server that transmits Hello World"
+entrypoint: main.toit
+dependencies:
+  ble:
+    url: github:toitware/toit_ble

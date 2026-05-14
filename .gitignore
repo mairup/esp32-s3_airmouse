@@ -1,0 +1,14 @@
+# Toit
+*.snapshot
+package.lock
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+
+# System
+.DS_Store
