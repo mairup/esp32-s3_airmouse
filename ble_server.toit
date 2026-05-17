@@ -3,7 +3,7 @@ import ble show BleUuid Adapter Advertisement Peripheral LocalCharacteristic \
 import monitor show Channel
 
 SERVICE-UUID ::= BleUuid "0000FFE0-0000-1000-8000-00805F9B34FB"
-CHAR-UUID   ::= BleUuid "0000FFE1-0000-1000-8000-00805F9B34FB"
+CHAR-UUID   ::= BleUuid "0000FFE2-0000-1000-8000-00805F9B34FB"
 
 class BleServer:
   static STATE-STOPPED     ::= 0
@@ -12,95 +12,207 @@ class BleServer:
   static STATE-CONNECTED   ::= 3
   static STATE-ERROR       ::= 4
 
+  static HEALTH-CHECK-INTERVAL   ::= Duration --ms=100
+  static HARDWARE-RETRY-DELAY    ::= Duration --ms=10     //  time between try start advertising (waiting for BLE stack restart)
+  static HARDWARE-RETRY-TIMEOUT  ::= Duration --s=1       //  hardware stack not starting -> hard crash
+
+  /// Default state-change logger
+  static print-state state/int context/any -> none:
+    if state == STATE-ADVERTISING:
+      print "[BLE] Ready and advertising"
+    else if state == STATE-CONNECTED:
+      print "[BLE] Client connected/active"
+    else if state == STATE-ERROR:
+      print "[BLE] Error: $context"
+    else if state == STATE-STOPPED:
+      print "[BLE] Service stopped"
+
   name /string
-  tx /Channel
-  commands /Channel
+  tx-bus /Channel
   
   state /int := STATE-STOPPED
-  on-state-change /Lambda?
+  last-health-check_ /int := 0
 
-  task_ /Task? := null
-  cmd-task_ /Task? := null
+
+
+  main-task /Task? := null
+  adapter /Adapter? := null
+  peripheral /Peripheral? := null
+  service /any := null
+  characteristic /LocalCharacteristic? := null
+  advertisement /Advertisement? := null
 
   constructor
       --.name/string
-      --.commands/Channel
-      --.on-state-change/Lambda?=null
-      --tx-buffer=10:
-    tx = Channel tx-buffer
-    // Start listening for commands immediately in the background
-    cmd-task_ = task:: command-loop_
+      --tx-queue-size=10:
+    tx-bus = Channel tx-queue-size
 
-  set-state_ new-state/int -> none:
+  /// Update state
+  set-state new-state/int --context=null -> none:
     if state != new-state:
       state = new-state
-      if on-state-change:
-        on-state-change.call state
+      print-state state context
 
-  command-loop_ -> none:
-    while true:
-      command := commands.receive
-      if command == "start":
-        start-ble_
-      else if command == "stop":
-        stop-ble_
-      else if command == "reload":
-        stop-ble_
-        sleep --ms=200
-        start-ble_
+      if state == STATE-ERROR:
+        task::
+          sleep --ms=100
+          stop
+          print "[RECOVERY] Waiting 2s before restart..."
+          sleep --ms=2000
+          start
+    else: print "Tried to reset the state $state"
 
-  start-ble_ -> none:
-    if task_: return
-    set-state_ STATE-STARTING
-    task_ = task::
+
+
+
+  /// Start BLE adapter and TX loop in background
+  start -> none:
+    if main-task:
+      set-state STATE-ERROR --context="START_REQUESTED_WHILE_RUNNING"
+      return
+
+    set-state STATE-STARTING
+    main-task = task::
       error := catch:
-        adapter := Adapter
-        peripheral := adapter.peripheral --name=name
-        service := peripheral.add-service SERVICE-UUID
-        characteristic := service.add-notification-characteristic CHAR-UUID
-        peripheral.deploy
-
-        advertisement := Advertisement
-          --name=name
-          --services=[SERVICE-UUID]
-          --flags=BLE-ADVERTISE-FLAGS-GENERAL-DISCOVERY | BLE-ADVERTISE-FLAGS-BREDR-UNSUPPORTED
-        peripheral.start-advertise advertisement --allow-connections
-        set-state_ STATE-ADVERTISING
-
+        configure-adapter
         while true:
-          data := tx.receive
-
-          err := catch:
-            characteristic.write data.to-utf8
-            null
-          
-          if err:
-            set-state_ STATE-ERROR
-            peripheral.stop-advertise
-            sleep --ms=200
-            peripheral.start-advertise advertisement --allow-connections
-            set-state_ STATE-ADVERTISING
+          if connect-to-client:
+            run-tx-loop
           else:
-            // State transitions to connected only IF the write succeeds
-            if state == STATE-ADVERTISING:
-              set-state_ STATE-CONNECTED
+            sleep --ms=1000
+            
+      if error != "CANCELED":
+        set-state STATE-ERROR --context=error
 
-      if error:
-        set-state_ STATE-ERROR
-        print "BLE Task Error: $error"
-        task_ = null
 
-  stop-ble_ -> none:
-    if task_:
-      task_.cancel
-      task_ = null
-    set-state_ STATE-STOPPED
+  /// Initialize BLE peripheral and characteristic
+  configure-adapter -> none:
+    if adapter:
+      catch: adapter.close
+      adapter = null
+    
+    adapter = Adapter
+    peripheral = adapter.peripheral --name=name
+    
+    try-add-service SERVICE-UUID
+    characteristic = service.add-notification-characteristic CHAR-UUID
+    peripheral.deploy
 
-  send data/string -> bool:
-    if not able-to-tx:
+    advertisement = Advertisement
+      --name=name
+      --services=[SERVICE-UUID]
+      --flags=BLE-ADVERTISE-FLAGS-GENERAL-DISCOVERY | BLE-ADVERTISE-FLAGS-BREDR-UNSUPPORTED
+
+  /// Adds a service to the peripheral, retrying if the hardware is still busy
+  /// from a previous session.
+  try-add-service uuid/BleUuid -> none:
+    start-time := Time.monotonic_us
+    while true:
+      error := catch: service = peripheral.add-service uuid
+      if not error: return
+      
+      elapsed := Time.monotonic_us - start-time
+      if error == "ALREADY_EXISTS" and elapsed < HARDWARE-RETRY-TIMEOUT.in-us:
+        sleep HARDWARE-RETRY-DELAY
+      else:
+        throw error
+
+  /// Starts advertising, retrying if the hardware is still busy
+  /// from a previous session.
+  try-start-advertising -> none:
+    start-time := Time.monotonic_us
+    while true:
+      catch: peripheral.stop-advertise
+      error := catch: peripheral.start-advertise advertisement --allow-connections
+      if not error: return
+      
+      elapsed := Time.monotonic_us - start-time
+      if error == "ALREADY_EXISTS" and elapsed < HARDWARE-RETRY-TIMEOUT.in-us:
+        sleep HARDWARE-RETRY-DELAY
+      else:
+        throw error
+
+  /// Stream TX channel data to hardware while connected
+  run-tx-loop -> none:
+    last-health-check_ = Time.monotonic_us
+    while state == STATE-CONNECTED:
+      data/ByteArray := tx-bus.receive
+      if not transmit_ data: return
+
+  /// Transmit data to connected client with periodic health checks.
+  /// Returns false on hardware or connection error.
+  transmit_ data/ByteArray -> bool:
+    if (Time.monotonic_us - last-health-check_) > HEALTH-CHECK-INTERVAL.in-us:
+      if not health-check:
+        print "[BLE] Health check failed, disconnecting"
+        return false
+
+    error := catch: characteristic.write data
+    if error:
+      if error == "LOOKUP_FAILED":
+        print "[BLE] Connection lost"
+      else:
+        print "[BLE] Transmission error: $error"
       return false
-    else:
-      return tx.try-send data
+    return true
 
-  able-to-tx -> bool:
-    return state == STATE-CONNECTED or state == STATE-ADVERTISING
+  /// Performs a connection health check.
+  /// Returns true if the connection is healthy, false otherwise.
+  health-check -> bool:
+    if subscribed-clients.is-empty:
+      print "[BLE] Connection lost (monitored)"
+      return false
+    last-health-check_ = Time.monotonic_us
+    return true
+
+  /// Check if the client is still active and subscribed
+  /// Returns a list of currently subscribed clients.
+  /// Returns an empty list if the characteristic is not ready or if an error occurs.
+  subscribed-clients -> List:
+    if not characteristic: return []
+    resource := characteristic.resource_
+    if not resource: return []
+    
+    clients := null
+    error := catch: clients = ble-get-subscribed-clients_ resource
+    return error ? [] : clients
+
+          
+  /// Advertise until device is connected to client. 
+  /// Returns true when connected or false on error/timeout
+  connect-to-client -> bool:
+    set-state STATE-ADVERTISING
+    try-start-advertising
+    print "BLE advertising as $name and is ready to connect"
+
+    while state == STATE-ADVERTISING:
+      clients := subscribed-clients
+      if not clients.is-empty:
+        print "[BLE] Connection established with: $clients"
+        set-state STATE-CONNECTED
+        return true
+      sleep --ms=10
+    return false
+    
+
+
+  /// Cancel tasks and release hardware resources
+  stop -> none:
+    if main-task:
+      main-task.cancel
+      main-task = null
+
+    if adapter:
+      adapter.close
+      adapter = null
+    set-state STATE-STOPPED
+
+  /// Enqueue data chunk to TX channel. 
+  /// Returns false if not ready or buffer full
+  send data/string -> bool:
+    if state == STATE-CONNECTED or state == STATE-ADVERTISING:
+      return tx-bus.try-send data.to-byte-array
+    return false
+    
+ble-get-subscribed-clients_ resource:
+  #primitive.ble.get-subscribed-clients

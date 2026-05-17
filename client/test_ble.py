@@ -1,24 +1,69 @@
 import asyncio
+import sys
+import termios
+import tty
 from bleak import BleakClient, BleakScanner
 
-CHAR = "0000FFE1-0000-1000-8000-00805F9B34FB"
+RX_CHAR = "0000FFE2-0000-1000-8000-00805F9B34FB"
+TARGET = "ESP32-S3"
 
-async def main():
-    print("Scanning...")
-    devices = await BleakScanner.discover(timeout=5)
-    if not devices:
-        print("No devices found")
-        return
+async def auto_connect():
+    deadline = asyncio.get_event_loop().time() + 5
+    while asyncio.get_event_loop().time() < deadline:
+        devices = await BleakScanner.discover(timeout=0.5)
+        match = next((d for d in devices if d.name == TARGET), None)
+        if match:
+            return match, devices
+    return None, devices
+
+def pick(devices):
     for i, d in enumerate(devices):
         print(f"  [{i}] {d.address}  {d.name or '?'}")
-    n = int(input("Select: "))
-    dev = devices[n]
-    print(f"Connecting to {dev.name or dev.address}...")
-    async with BleakClient(dev) as c:
-        print("Connected! Listening...")
-        async def handler(_, data):
-            print(data.decode())
-        await c.start_notify(CHAR, handler)
-        await asyncio.Event().wait()
+    return devices[int(input("Select: "))]
 
-asyncio.run(main())
+def read_key(stop):
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    try:
+        tty.setcbreak(fd)
+        while not stop.is_set():
+            ch = sys.stdin.read(1)
+            if ch == 'q':
+                stop.set()
+                return
+    finally:
+        termios.tcsetattr(fd, termios.TCSANOW, old)
+
+async def main():
+    print(f"Scanning for {TARGET}...", flush=True)
+    match, devices = await auto_connect()
+    dev = match if match else pick(devices)
+    if not dev:
+        print("No devices found")
+        return
+    print(f"Connecting to {dev.name or dev.address}...", flush=True)
+    stop = asyncio.Event()
+    last_print_time = 0.0
+    c = BleakClient(dev)
+    await c.connect()
+    print("Connected! Press 'q' to quit.\n", flush=True)
+    async def handler(_, data):
+        nonlocal last_print_time
+        now = asyncio.get_event_loop().time()
+        if now - last_print_time >= 0.5:
+            last_print_time = now
+            parts = []
+            for b in data:
+                char_repr = f"'{chr(b)}'" if 32 <= b <= 126 else "'.'"
+                parts.append(f"0x{b:02X} ({char_repr})")
+            hexs = " ".join(parts)
+            print(f"RX {hexs}", flush=True)
+    await c.start_notify(RX_CHAR, handler)
+    await asyncio.gather(asyncio.to_thread(read_key, stop), stop.wait(), return_exceptions=True)
+    print("Disconnected.")
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print()

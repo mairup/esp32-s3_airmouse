@@ -1,24 +1,21 @@
-import monitor show Channel
 
-class HeartbeatTask:
-  output /Channel
+class Heartbeat:
+  send-to /Lambda
   interval-ms /int
-  task_ /Task? := null
+  run-thread /Task? := null
   counter /int := 0
 
-  constructor --.output --.interval-ms=1000:
+  constructor --.send-to --.interval-ms=1000:
 
   start -> none:
-    task_ = task::
+    if run-thread: return
+    run-thread = task::
       while true:
-        output.send "Hello World! count=$counter"
+        send-to.call "$counter"
         counter++
         sleep --ms=interval-ms
 
   stop -> none:
-    if task_ != null:
-      task_.cancel
-
-  is-running -> bool:
-    if task_ == null: return false
-    return not task_.is-canceled
+    if run-thread:
+      run-thread.cancel
+      run-thread = null

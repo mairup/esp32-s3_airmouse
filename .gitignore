@@ -12,3 +12,6 @@ ENV/
 
 # System
 .DS_Store
+
+# Other
+scratch/
