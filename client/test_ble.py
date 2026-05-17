@@ -8,6 +8,7 @@ from bleak import BleakClient, BleakScanner
 RX_CHAR = "0000FFE2-0000-1000-8000-00805F9B34FB"
 TARGET = "ESP32-S3"
 CACHE_FILE = os.path.join(os.path.dirname(__file__), ".ble_cache")
+DEFAULT_MAC = "A0:85:E3:E3:57:6E"
 
 def get_cached_address():
     if os.path.exists(CACHE_FILE):
@@ -16,7 +17,7 @@ def get_cached_address():
                 return f.read().strip()
         except:
             pass
-    return None
+    return DEFAULT_MAC
 
 def cache_address(address):
     try:
@@ -55,15 +56,38 @@ def read_key(stop):
 async def main():
     address = get_cached_address()
     c = None
+    notifications_started = False
     
+    stop = asyncio.Event()
+    last_print_time = 0.0
+    
+    async def handler(_, data):
+        nonlocal last_print_time
+        now = asyncio.get_event_loop().time()
+        if now - last_print_time >= 0.5:
+            last_print_time = now
+            parts = []
+            for b in data:
+                char_repr = f"'{chr(b)}'" if 32 <= b <= 126 else "'.'"
+                parts.append(f"0x{b:02X} ({char_repr})")
+            hexs = " ".join(parts)
+            print(f"RX {hexs}", flush=True)
+
     if address:
         print(f"Attempting direct connection to cached address: {address}...", flush=True)
         c = BleakClient(address)
         try:
             await asyncio.wait_for(c.connect(), timeout=3.0)
+            # Verify the connection is fully active by subscribing to notifications
+            await c.start_notify(RX_CHAR, handler)
             print("Connected instantly using cache!", flush=True)
-        except Exception:
-            print("Cached address connection failed. Scanning...", flush=True)
+            notifications_started = True
+        except Exception as e:
+            print(f"Cached address connection failed ({type(e).__name__}). Scanning...", flush=True)
+            try:
+                await c.disconnect()
+            except:
+                pass
             address = None
             c = None
 
@@ -81,22 +105,10 @@ async def main():
         await c.connect()
         print("Connected!", flush=True)
 
-    stop = asyncio.Event()
-    last_print_time = 0.0
     print("Press 'q' to quit.\n", flush=True)
-    async def handler(_, data):
-        nonlocal last_print_time
-        now = asyncio.get_event_loop().time()
-        if now - last_print_time >= 0.5:
-            last_print_time = now
-            parts = []
-            for b in data:
-                char_repr = f"'{chr(b)}'" if 32 <= b <= 126 else "'.'"
-                parts.append(f"0x{b:02X} ({char_repr})")
-            hexs = " ".join(parts)
-            print(f"RX {hexs}", flush=True)
-            
-    await c.start_notify(RX_CHAR, handler)
+    if not notifications_started:
+        await c.start_notify(RX_CHAR, handler)
+        
     await asyncio.gather(asyncio.to_thread(read_key, stop), stop.wait(), return_exceptions=True)
     print("Disconnected.")
 
