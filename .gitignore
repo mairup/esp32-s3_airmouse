@@ -9,6 +9,7 @@ __pycache__/
 .venv/
 venv/
 ENV/
+.ble_cache
 
 # System
 .DS_Store

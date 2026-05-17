@@ -1,4 +1,5 @@
 import asyncio
+import os
 import sys
 import termios
 import tty
@@ -6,6 +7,23 @@ from bleak import BleakClient, BleakScanner
 
 RX_CHAR = "0000FFE2-0000-1000-8000-00805F9B34FB"
 TARGET = "ESP32-S3"
+CACHE_FILE = os.path.join(os.path.dirname(__file__), ".ble_cache")
+
+def get_cached_address():
+    if os.path.exists(CACHE_FILE):
+        try:
+            with open(CACHE_FILE, "r") as f:
+                return f.read().strip()
+        except:
+            pass
+    return None
+
+def cache_address(address):
+    try:
+        with open(CACHE_FILE, "w") as f:
+            f.write(address)
+    except:
+        pass
 
 async def auto_connect():
     deadline = asyncio.get_event_loop().time() + 5
@@ -35,18 +53,37 @@ def read_key(stop):
         termios.tcsetattr(fd, termios.TCSANOW, old)
 
 async def main():
-    print(f"Scanning for {TARGET}...", flush=True)
-    match, devices = await auto_connect()
-    dev = match if match else pick(devices)
-    if not dev:
-        print("No devices found")
-        return
-    print(f"Connecting to {dev.name or dev.address}...", flush=True)
+    address = get_cached_address()
+    c = None
+    
+    if address:
+        print(f"Attempting direct connection to cached address: {address}...", flush=True)
+        c = BleakClient(address)
+        try:
+            await asyncio.wait_for(c.connect(), timeout=3.0)
+            print("Connected instantly using cache!", flush=True)
+        except Exception:
+            print("Cached address connection failed. Scanning...", flush=True)
+            address = None
+            c = None
+
+    if not address:
+        print(f"Scanning for {TARGET}...", flush=True)
+        match, devices = await auto_connect()
+        dev = match if match else pick(devices)
+        if not dev:
+            print("No devices found")
+            return
+        address = dev.address
+        cache_address(address)
+        print(f"Connecting to {dev.name or address}...", flush=True)
+        c = BleakClient(address)
+        await c.connect()
+        print("Connected!", flush=True)
+
     stop = asyncio.Event()
     last_print_time = 0.0
-    c = BleakClient(dev)
-    await c.connect()
-    print("Connected! Press 'q' to quit.\n", flush=True)
+    print("Press 'q' to quit.\n", flush=True)
     async def handler(_, data):
         nonlocal last_print_time
         now = asyncio.get_event_loop().time()
@@ -58,6 +95,7 @@ async def main():
                 parts.append(f"0x{b:02X} ({char_repr})")
             hexs = " ".join(parts)
             print(f"RX {hexs}", flush=True)
+            
     await c.start_notify(RX_CHAR, handler)
     await asyncio.gather(asyncio.to_thread(read_key, stop), stop.wait(), return_exceptions=True)
     print("Disconnected.")
