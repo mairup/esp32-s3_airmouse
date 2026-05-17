@@ -6,6 +6,7 @@ import monitor show Channel
 class WirelessLogTarget implements Target:
   socket/udp.Socket? := null
   log-queue/Channel ::= Channel 20
+  is-sending_ /bool := false
   
   // List of Tailnet and local destination addresses
   addresses/List ::= [
@@ -21,23 +22,35 @@ class WirelessLogTarget implements Target:
 
   constructor:
     task::
-      // 1. Wait for network stability and open socket
-      sleep --ms=1000
-      catch: socket = net.open.udp-open --port=0
-      
-      // 2. Flush queue and enter send loop
       send-loop_
 
   send-loop_:
     while true:
       msg := log-queue.receive
+      
+      // Dynamic self-healing: Try to open the socket if not open yet
+      if not socket:
+        is-sending_ = true
+        try:
+          catch: socket = net.open.udp-open --port=0
+        finally:
+          is-sending_ = false
+          
       if socket:
         datagram-bytes := "$msg\n".to-byte-array
-        addresses.do: |addr|
-          catch: socket.send (udp.Datagram datagram-bytes addr)
+        is-sending_ = true
+        try:
+          addresses.do: |addr|
+            catch: socket.send (udp.Datagram datagram-bytes addr)
+        finally:
+          is-sending_ = false
 
   log level/int message/string names/List? keys/List? values/List? -> none:
     serial.log level message names keys values
+    
+    // Prevent recursive logging loops from within the network stack
+    if is-sending_: return
+
     buffer := ""
     if names and names.size > 0:
       name-str := ""
