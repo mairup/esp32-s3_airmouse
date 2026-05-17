@@ -1,5 +1,6 @@
 import gpio
 import gpio.pwm
+import math
 import ..ble_server show BleServer
 
 class RgbLed:
@@ -50,11 +51,11 @@ class RgbIndicator:
     task:: run_
 
   run_ -> none:
-    flash-ticks := 0
-    flash-on := false
+    flash-angle := 0.0
     
-    last-state := -1
-    last-flash-on := false
+    last-r := -1
+    last-g := -1
+    last-b := -1
 
     while true:
       state := ble.state
@@ -69,28 +70,30 @@ class RgbIndicator:
       else if state == BleServer.STATE-STARTING:
         r = 255; g = 128; b = 0 // Orange
       else if state == BleServer.STATE-ADVERTISING:
-        if flash-ticks % 25 == 0:
-          flash-on = not flash-on
+        // Slow biological breathing cycle (period = 3.0s -> 300 steps at 100Hz)
+        flash-angle += (2.0 * math.PI / 300.0)
+        sin-val := math.sin flash-angle
         
-        if flash-on:
-          r = 0; g = 0; b = 255 // Blue
-        else:
-          r = 0; g = 0; b = 0
-        flash-ticks++
+        // Apple Gaussian Breathing Curve: e^sin(t) normalized to [0.0, 1.0]
+        breathe-factor := (math.exp sin-val - 0.367879) / 2.350402
+        
+        r = 0
+        g = 0
+        b = (255.0 * breathe-factor).to-int
       else if state == BleServer.STATE-CONNECTED:
         r = 0; g = 255; b = 0 // Green
       else if state == BleServer.STATE-ERROR:
         r = 255; g = 0; b = 0 // Red
 
-      // Reset flash state when not advertising
+      // Reset breathing angle when not advertising
       if state != BleServer.STATE-ADVERTISING:
-        flash-ticks = 0
-        flash-on = false
+        flash-angle = 0.0
 
-      // Only write to the physical PWM registers if state or flash tick changes
-      if state != last-state or flash-on != last-flash-on:
+      // Only write to physical PWM registers if color index actually changes
+      if r != last-r or g != last-g or b != last-b:
         led.set-color r g b
-        last-state = state
-        last-flash-on = flash-on
+        last-r = r
+        last-g = g
+        last-b = b
 
       sleep --ms=10
