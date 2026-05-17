@@ -135,6 +135,7 @@ class BleServer:
 
   /// Stream TX channel data to hardware while connected
   run-tx-loop -> none:
+    clear-tx-queue_
     last-health-check_ = Time.monotonic_us
     while state == STATE-CONNECTED:
       data/ByteArray := tx-bus.receive
@@ -211,9 +212,14 @@ class BleServer:
   /// Enqueue data chunk to TX channel. 
   /// Returns false if not ready or buffer full
   send data/string -> bool:
-    if state == STATE-CONNECTED or state == STATE-ADVERTISING:
+    if state == STATE-CONNECTED:
       return tx-bus.try-send data.to-byte-array
     return false
+
+  /// Clear any pending stale data in the TX queue
+  clear-tx-queue_ -> none:
+    while (tx-bus.receive --blocking=false):
+      // Discard stale queued data
     
 ble-get-subscribed-clients_ resource:
   #primitive.ble.get-subscribed-clients
