@@ -1,18 +1,18 @@
 
 class Heartbeat:
   send-to /Lambda
+  generator /Lambda
   interval-ms /int
   run-thread /Task? := null
-  counter /int := 0
 
-  constructor --.send-to --.interval-ms=1000:
+  constructor --.send-to --.generator --.interval-ms=1000:
 
   start -> none:
     if run-thread: return
     run-thread = task::
       while true:
-        send-to.call "$counter"
-        counter++
+        val := generator.call
+        send-to.call val
         sleep --ms=interval-ms
 
   stop -> none:

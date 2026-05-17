@@ -1,6 +1,7 @@
 import ble show BleUuid Adapter Advertisement Peripheral LocalCharacteristic \
   BLE-ADVERTISE-FLAGS-GENERAL-DISCOVERY BLE-ADVERTISE-FLAGS-BREDR-UNSUPPORTED
 import monitor show Channel
+import log
 
 SERVICE-UUID ::= BleUuid "0000FFE0-0000-1000-8000-00805F9B34FB"
 CHAR-UUID   ::= BleUuid "0000FFE2-0000-1000-8000-00805F9B34FB"
@@ -19,13 +20,13 @@ class BleServer:
   /// Default state-change logger
   static print-state state/int context/any -> none:
     if state == STATE-ADVERTISING:
-      print "[BLE] Ready and advertising"
+      log.info "[BLE] Ready and advertising"
     else if state == STATE-CONNECTED:
-      print "[BLE] Client connected/active"
+      log.info "[BLE] Client connected/active"
     else if state == STATE-ERROR:
-      print "[BLE] Error: $context"
+      log.error "[BLE] Error" --tags={"context": context}
     else if state == STATE-STOPPED:
-      print "[BLE] Service stopped"
+      log.info "[BLE] Service stopped"
 
   name /string
   tx-bus /Channel
@@ -57,10 +58,10 @@ class BleServer:
         task::
           sleep --ms=100
           stop
-          print "[RECOVERY] Waiting 2s before restart..."
+          log.info "[RECOVERY] Waiting 2s before restart..."
           sleep --ms=2000
           start
-    else: print "Tried to reset the state $state"
+    else: log.warn "Tried to reset the state" --tags={"state": state}
 
 
 
@@ -144,15 +145,15 @@ class BleServer:
   transmit_ data/ByteArray -> bool:
     if (Time.monotonic_us - last-health-check_) > HEALTH-CHECK-INTERVAL.in-us:
       if not health-check:
-        print "[BLE] Health check failed, disconnecting"
+        log.warn "[BLE] Health check failed, disconnecting"
         return false
 
     error := catch: characteristic.write data
     if error:
       if error == "LOOKUP_FAILED":
-        print "[BLE] Connection lost"
+        log.warn "[BLE] Connection lost"
       else:
-        print "[BLE] Transmission error: $error"
+        log.error "[BLE] Transmission error" --tags={"error": error}
       return false
     return true
 
@@ -160,7 +161,7 @@ class BleServer:
   /// Returns true if the connection is healthy, false otherwise.
   health-check -> bool:
     if subscribed-clients.is-empty:
-      print "[BLE] Connection lost (monitored)"
+      log.warn "[BLE] Connection lost (monitored)"
       return false
     last-health-check_ = Time.monotonic_us
     return true
@@ -183,12 +184,12 @@ class BleServer:
   connect-to-client -> bool:
     set-state STATE-ADVERTISING
     try-start-advertising
-    print "BLE advertising as $name and is ready to connect"
+    log.info "BLE advertising as $name and is ready to connect"
 
     while state == STATE-ADVERTISING:
       clients := subscribed-clients
       if not clients.is-empty:
-        print "[BLE] Connection established with: $clients"
+        log.info "[BLE] Connection established" --tags={"clients": clients}
         set-state STATE-CONNECTED
         return true
       sleep --ms=10
