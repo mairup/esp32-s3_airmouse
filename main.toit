@@ -20,13 +20,29 @@ main:
 
   log.info "$BLE-DEVICE-NAME starting..."
 
-  rgb-led := RgbLed --red=RED-RGB-PIN --green=GREEN-RGB-PIN --blue=BLUE-RGB-PIN --brightness=10
-  ble := start-ble
-  rgb-indicator := RgbIndicator rgb-led ble
-  rgb-indicator.start
+  exception := catch:
+    log.info "Initializing RgbLed on R:$RED-RGB-PIN, G:$GREEN-RGB-PIN, B:$BLUE-RGB-PIN..."
+    rgb-led := RgbLed --red=RED-RGB-PIN --green=GREEN-RGB-PIN --blue=BLUE-RGB-PIN --brightness=10
+    log.info "RgbLed initialized successfully"
 
-  if DEBUG:
-    start-heartbeat --send-to=:: |val/string| ble.send val
+    log.info "Initializing and starting BLE Server..."
+    ble := start-ble
+    log.info "BLE Server startup initiated successfully"
+
+    log.info "Starting RgbIndicator..."
+    rgb-indicator := RgbIndicator rgb-led ble
+    rgb-indicator.start
+    log.info "RgbIndicator started"
+
+    if DEBUG:
+      log.info "Starting heartbeat task..."
+      start-heartbeat --send-to=:: |val/string| ble.send val
+      log.info "Heartbeat task started"
+
+  if exception:
+    log.error "FATAL EXCEPTION in main" --tags={"error": exception}
+    sleep --ms=2000 // Allow UDP network buffer to flush to PC
+    throw exception
 
 
 start-ble -> BleServer:
