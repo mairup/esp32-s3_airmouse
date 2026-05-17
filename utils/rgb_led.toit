@@ -51,7 +51,7 @@ class RgbIndicator:
     task:: run_
 
   run_ -> none:
-    flash-angle := 0.0
+    flash-ticks := 0
     
     last-r := -1
     last-g := -1
@@ -70,24 +70,32 @@ class RgbIndicator:
       else if state == BleServer.STATE-STARTING:
         r = 255; g = 128; b = 0 // Orange
       else if state == BleServer.STATE-ADVERTISING:
-        // Slow biological breathing cycle (period = 3.0s -> 300 steps at 100Hz)
-        flash-angle += (2.0 * math.PI / 300.0)
-        sin-val := math.sin flash-angle
+        // Playful Flutter-style spring-breathing cycle (period = 2.0s -> 200 steps at 100Hz)
+        ticks := flash-ticks % 200
+        x := ticks / 200.0
         
-        // Apple Gaussian Breathing Curve: e^sin(t) normalized to [0.0, 1.0]
-        breathe-factor := (math.exp sin-val - 0.367879) / 2.350402
-        
+        breathe-factor := 0.0
+        if x < 0.60:
+          // Swell & Spring: Flutter Elastic-Out spring bounce at the peak
+          t := x / 0.60
+          breathe-factor = (math.pow 2.0 (-8.0 * t)) * (math.sin (t * 22.0)) + 1.0
+        else:
+          // Cosine decay: Extremely soft, soothing fade-out
+          t := (x - 0.60) / 0.40
+          breathe-factor = 0.5 * (math.cos (t * math.PI) + 1.0)
+          
         r = 0
         g = 0
         b = (255.0 * breathe-factor).to-int
+        flash-ticks++
       else if state == BleServer.STATE-CONNECTED:
         r = 0; g = 255; b = 0 // Green
       else if state == BleServer.STATE-ERROR:
         r = 255; g = 0; b = 0 // Red
 
-      // Reset breathing angle when not advertising
+      // Reset breathing ticks when not advertising
       if state != BleServer.STATE-ADVERTISING:
-        flash-angle = 0.0
+        flash-ticks = 0
 
       // Only write to physical PWM registers if color index actually changes
       if r != last-r or g != last-g or b != last-b:
