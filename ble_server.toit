@@ -193,7 +193,8 @@ class BleServer:
         log.info "[BLE] Connection established" --tags={"clients": clients}
         set-state STATE-CONNECTED
         return true
-      sleep --ms=10
+      // Sleep 100ms instead of 10ms to reduce idle CPU/battery usage while waiting
+      sleep --ms=100
     return false
     
 
