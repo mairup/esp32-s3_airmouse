@@ -1,0 +1,3 @@
+## 2024-05-24 - Precomputing Heavy Float Math on Microcontrollers
+**Learning:** Double-precision software float operations (like `math.pow`, `math.sin`, `math.cos`, and continuous division) are extremely expensive inside high-frequency loops (like a 100Hz LED update loop) on the ESP32-S3 microcontroller, as they lack native double-precision hardware support.
+**Action:** Always precompute complex curves (like breathing animations) into O(1) ByteArray lookup tables, and hoist repeated float divisions (like brightness scaling) into precomputed multipliers calculated only when the base value changes.

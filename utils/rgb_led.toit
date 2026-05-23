@@ -3,6 +3,32 @@ import gpio.pwm
 import math
 import ..ble_server show BleServer
 
+
+// Precomputed breathing animation curve values (0-255) for 2.0s period at 100Hz
+BREATHE-TABLE ::= #[
+  255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+  255, 255, 255, 255, 255, 255, 255, 255, 237, 219,
+  204, 192, 183, 177, 174, 175, 178, 183, 191, 200,
+  210, 220, 231, 242, 252, 255, 255, 255, 255, 255,
+  255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+  255, 255, 252, 248, 245, 242, 240, 239, 238, 238,
+  239, 240, 241, 243, 245, 247, 249, 251, 253, 255,
+  255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+  255, 255, 255, 255, 255, 255, 254, 253, 253, 252,
+  252, 251, 251, 251, 251, 251, 252, 252, 252, 253,
+  253, 254, 254, 255, 255, 255, 255, 255, 255, 255,
+  255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+  255, 254, 254, 254, 253, 252, 251, 250, 248, 247,
+  245, 243, 241, 238, 236, 233, 230, 227, 224, 221,
+  217, 214, 210, 206, 202, 198, 194, 189, 185, 180,
+  176, 171, 166, 162, 157, 152, 147, 142, 137, 132,
+  127, 122, 117, 112, 107, 102, 97, 92, 88, 83,
+  78, 74, 69, 65, 60, 56, 52, 48, 44, 40,
+  37, 33, 30, 27, 24, 21, 18, 16, 13, 11,
+  9, 7, 6, 4, 3, 2, 1, 0, 0, 0
+]
+
+
 class RgbLed:
   red-channel   /pwm.PwmChannel
   green-channel /pwm.PwmChannel
@@ -12,9 +38,11 @@ class RgbLed:
   green      /int := 0
   blue       /int := 0
   brightness /int := 100 // 0 -- 100
+  brightness-multiplier_ /float := 1.0
 
   constructor --red/int --green/int --blue/int --.brightness/int=100:
     generator := pwm.Pwm --frequency=1000
+    brightness-multiplier_ = brightness / (255.0 * 100.0)
     red-channel = generator.start (gpio.Pin red)
     green-channel = generator.start (gpio.Pin green)
     blue-channel = generator.start (gpio.Pin blue)
@@ -28,13 +56,14 @@ class RgbLed:
 
   set-brightness value/int -> none:
     brightness = value
+    brightness-multiplier_ = brightness / (255.0 * 100.0)
     update_
 
   update_ -> none:
-    // Scale current R, G, B by the 0-100 brightness percentage
-    r-factor := (red * brightness) / (255.0 * 100.0)
-    g-factor := (green * brightness) / (255.0 * 100.0)
-    b-factor := (blue * brightness) / (255.0 * 100.0)
+    // Scale current R, G, B by the precomputed brightness percentage multiplier
+    r-factor := red * brightness-multiplier_
+    g-factor := green * brightness-multiplier_
+    b-factor := blue * brightness-multiplier_
 
     red-channel.set-duty-factor r-factor
     green-channel.set-duty-factor g-factor
@@ -72,21 +101,10 @@ class RgbIndicator:
       else if state == BleServer.STATE-ADVERTISING:
         // Playful Flutter-style spring-breathing cycle (period = 2.0s -> 200 steps at 100Hz)
         ticks := flash-ticks % 200
-        x := ticks / 200.0
-        
-        breathe-factor := 0.0
-        if x < 0.60:
-          // Swell & Spring: Flutter Elastic-Out spring bounce at the peak
-          t := x / 0.60
-          breathe-factor = (math.pow 2.0 (-8.0 * t)) * (math.sin (t * 22.0)) + 1.0
-        else:
-          // Cosine decay: Extremely soft, soothing fade-out
-          t := (x - 0.60) / 0.40
-          breathe-factor = 0.5 * (math.cos (t * math.PI) + 1.0)
-          
+        // O(1) table lookup avoids expensive software float math
         r = 0
         g = 0
-        b = (255.0 * breathe-factor).to-int
+        b = BREATHE-TABLE[ticks]
         flash-ticks++
       else if state == BleServer.STATE-CONNECTED:
         r = 0; g = 255; b = 0 // Green
