@@ -44,8 +44,19 @@ class RgbLed:
 class RgbIndicator:
   led /RgbLed
   ble /BleServer
+  precomputed-breathing /List := []
 
   constructor .led .ble:
+    200.repeat: | it |
+      x := it / 200.0
+      breathe-factor := 0.0
+      if x < 0.60:
+        t := x / 0.60
+        breathe-factor = (math.pow 2.0 (-8.0 * t)) * (math.sin (t * 22.0)) + 1.0
+      else:
+        t := (x - 0.60) / 0.40
+        breathe-factor = 0.5 * (math.cos (t * math.PI) + 1.0)
+      precomputed-breathing.add (255.0 * breathe-factor).to-int
 
   start -> none:
     task:: run_
@@ -71,22 +82,11 @@ class RgbIndicator:
         r = 255; g = 128; b = 0 // Orange
       else if state == BleServer.STATE-ADVERTISING:
         // Playful Flutter-style spring-breathing cycle (period = 2.0s -> 200 steps at 100Hz)
-        ticks := flash-ticks % 200
-        x := ticks / 200.0
-        
-        breathe-factor := 0.0
-        if x < 0.60:
-          // Swell & Spring: Flutter Elastic-Out spring bounce at the peak
-          t := x / 0.60
-          breathe-factor = (math.pow 2.0 (-8.0 * t)) * (math.sin (t * 22.0)) + 1.0
-        else:
-          // Cosine decay: Extremely soft, soothing fade-out
-          t := (x - 0.60) / 0.40
-          breathe-factor = 0.5 * (math.cos (t * math.PI) + 1.0)
-          
+        // Optimization: Floating point math is pre-computed in constructor to save CPU cycles
+        // during this 100Hz render loop
         r = 0
         g = 0
-        b = (255.0 * breathe-factor).to-int
+        b = precomputed-breathing[flash-ticks % 200]
         flash-ticks++
       else if state == BleServer.STATE-CONNECTED:
         r = 0; g = 255; b = 0 // Green
