@@ -1,0 +1,3 @@
+## 2024-05-18 - Avoid Continuous Trig Functions in Microcontroller Render Loops
+**Learning:** Performing floating-point math operations like `math.pow`, `math.sin`, and `math.cos` repeatedly inside a high-frequency (e.g., 100Hz) render loop is a significant performance bottleneck on microcontrollers.
+**Action:** When creating animations or periodic effects, pre-compute the values into a lookup table (`ByteArray`) during initialization and use `O(1)` array lookups in the render loop instead of calculating them continuously.
