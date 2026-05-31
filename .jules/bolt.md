@@ -1,0 +1,3 @@
+## 2024-05-31 - [Embedded Performance] Pre-compute expensive math for hardware loops
+**Learning:** In microcontroller environments like ESP32-S3 (running Toit), running expensive floating-point math functions (like `sin`, `cos`, `pow`) inside high-frequency polling loops (e.g., 100Hz LED PWM updates) unnecessarily drains CPU and limits performance for critical tasks.
+**Action:** When calculating visual effects or physics at fixed intervals in embedded systems, compute the values once at startup (or compile-time) into a static lookup table (`List`/array) and replace realtime math with `O(1)` index lookups.
