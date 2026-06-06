@@ -42,6 +42,18 @@ class RgbLed:
 
 
 class RgbIndicator:
+  // Precompute 200 steps at 100Hz (2.0s period) to avoid math at runtime
+  static BREATHE-CURVE ::= List 200: |ticks|
+    x := ticks / 200.0
+    breathe-factor := 0.0
+    if x < 0.60:
+      t := x / 0.60
+      breathe-factor = (math.pow 2.0 (-8.0 * t)) * (math.sin (t * 22.0)) + 1.0
+    else:
+      t := (x - 0.60) / 0.40
+      breathe-factor = 0.5 * (math.cos (t * math.PI) + 1.0)
+    (255.0 * breathe-factor).to-int
+
   led /RgbLed
   ble /BleServer
 
@@ -71,22 +83,9 @@ class RgbIndicator:
         r = 255; g = 128; b = 0 // Orange
       else if state == BleServer.STATE-ADVERTISING:
         // Playful Flutter-style spring-breathing cycle (period = 2.0s -> 200 steps at 100Hz)
-        ticks := flash-ticks % 200
-        x := ticks / 200.0
-        
-        breathe-factor := 0.0
-        if x < 0.60:
-          // Swell & Spring: Flutter Elastic-Out spring bounce at the peak
-          t := x / 0.60
-          breathe-factor = (math.pow 2.0 (-8.0 * t)) * (math.sin (t * 22.0)) + 1.0
-        else:
-          // Cosine decay: Extremely soft, soothing fade-out
-          t := (x - 0.60) / 0.40
-          breathe-factor = 0.5 * (math.cos (t * math.PI) + 1.0)
-          
         r = 0
         g = 0
-        b = (255.0 * breathe-factor).to-int
+        b = BREATHE-CURVE[flash-ticks % 200]
         flash-ticks++
       else if state == BleServer.STATE-CONNECTED:
         r = 0; g = 255; b = 0 // Green
