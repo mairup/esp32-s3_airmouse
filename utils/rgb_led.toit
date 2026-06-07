@@ -1,7 +1,21 @@
 import gpio
 import gpio.pwm
-import math
 import ..ble_server show BleServer
+
+// Precomputed breathe curve for 200 ticks (2.0s at 100Hz)
+// Replaces expensive math operations in the loop
+BREATHE-CURVE ::= [
+  255, 299, 338, 371, 396, 415, 427, 431, 430, 422, 410, 393, 373, 351, 327, 303, 280, 257, 237, 219,
+  204, 192, 183, 177, 174, 175, 178, 183, 191, 200, 210, 220, 231, 242, 252, 261, 270, 277, 282, 287,
+  289, 291, 291, 289, 287, 284, 280, 276, 271, 266, 261, 256, 252, 248, 245, 242, 240, 239, 238, 238,
+  239, 240, 241, 243, 245, 247, 249, 251, 253, 255, 257, 259, 260, 261, 262, 262, 262, 262, 261, 261,
+  260, 259, 258, 257, 256, 255, 254, 253, 253, 252, 252, 251, 251, 251, 251, 251, 252, 252, 252, 253,
+  253, 254, 254, 255, 255, 255, 256, 256, 256, 256, 256, 256, 256, 256, 256, 255, 255, 255, 255, 255,
+  255, 254, 254, 254, 253, 252, 251, 250, 248, 247, 245, 243, 241, 238, 236, 233, 230, 227, 224, 221,
+  217, 214, 210, 206, 202, 198, 194, 189, 185, 180, 176, 171, 166, 162, 157, 152, 147, 142, 137, 132,
+  127, 122, 117, 112, 107, 102, 97, 92, 88, 83, 78, 74, 69, 65, 60, 56, 52, 48, 44, 40,
+  37, 33, 30, 27, 24, 21, 18, 16, 13, 11, 9, 7, 6, 4, 3, 2, 1, 0, 0, 0
+]
 
 class RgbLed:
   red-channel   /pwm.PwmChannel
@@ -72,21 +86,13 @@ class RgbIndicator:
       else if state == BleServer.STATE-ADVERTISING:
         // Playful Flutter-style spring-breathing cycle (period = 2.0s -> 200 steps at 100Hz)
         ticks := flash-ticks % 200
-        x := ticks / 200.0
         
-        breathe-factor := 0.0
-        if x < 0.60:
-          // Swell & Spring: Flutter Elastic-Out spring bounce at the peak
-          t := x / 0.60
-          breathe-factor = (math.pow 2.0 (-8.0 * t)) * (math.sin (t * 22.0)) + 1.0
-        else:
-          // Cosine decay: Extremely soft, soothing fade-out
-          t := (x - 0.60) / 0.40
-          breathe-factor = 0.5 * (math.cos (t * math.PI) + 1.0)
-          
         r = 0
         g = 0
-        b = (255.0 * breathe-factor).to-int
+        b = BREATHE-CURVE[ticks]
+        // Cap the maximum value at 255 (duty factor must be <= 1.0)
+        if b > 255: b = 255
+
         flash-ticks++
       else if state == BleServer.STATE-CONNECTED:
         r = 0; g = 255; b = 0 // Green
