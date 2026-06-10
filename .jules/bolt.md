@@ -1,0 +1,3 @@
+## 2024-06-10 - Precomputing UI Animations
+**Learning:** Performing heavy floating-point math (`math.pow`, `math.sin`, `math.cos`) inside a 100Hz animation loop (`sleep --ms=10`) on a microcontroller wastes significant CPU cycles and power. The Toit `RgbIndicator` repeatedly calculated the same 200 spring-breathing animation values.
+**Action:** Move deterministic, cyclical animations into a precomputed Lookup Table (LUT) initialized in the constructor. This transforms costly O(n) math operations in the hot path into fast O(1) list index lookups, freeing up the CPU for background BLE/networking tasks.
