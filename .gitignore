@@ -16,3 +16,5 @@ ENV/
 
 # Other
 scratch/
+toit/
+toit-linux.tar.gz
