@@ -14,9 +14,17 @@ BLUE-RGB-PIN  ::= 4
 
 
 main:
-  if DEBUG:
-    logger-init
-    log.info "Debug mode active (Wi-Fi UDP logger initialized)"
+  // To run the normal airmouse app, uncomment this and comment out run-color-test below:
+  // run-airmouse-app
+  
+  // Running color diagnostic loop:
+  run-color-test
+
+
+run-airmouse-app:
+  // if DEBUG:
+  //   logger-init
+  //   log.info "Debug mode active (Wi-Fi UDP logger initialized)"
 
   log.info "$BLE-DEVICE-NAME starting..."
 
@@ -30,7 +38,7 @@ main:
     log.info "BLE Server startup initiated successfully"
 
     log.info "Starting RgbIndicator..."
-    rgb-indicator := RgbIndicator rgb-led ble
+    rgb-indicator := RgbIndicator ble rgb-led
     rgb-indicator.start
     log.info "RgbIndicator started"
 
@@ -43,6 +51,27 @@ main:
     log.error "FATAL EXCEPTION in main" --tags={"error": exception}
     sleep --ms=2000 // Allow UDP network buffer to flush to PC
     throw exception
+
+
+run-color-test:
+  log.info "Starting color diagnostic test loop (switches every 2 seconds)..."
+  rgb-led := RgbLed --red=RED-RGB-PIN --green=GREEN-RGB-PIN --blue=BLUE-RGB-PIN --brightness=100
+  while true:
+    log.info "Setting RED"
+    rgb-led.set-color 255 0 0
+    sleep --ms=2000
+
+    log.info "Setting GREEN"
+    rgb-led.set-color 0 255 0
+    sleep --ms=2000
+
+    log.info "Setting BLUE"
+    rgb-led.set-color 0 0 255
+    sleep --ms=2000
+
+    log.info "Setting ORANGE"
+    rgb-led.set-color 255 128 0
+    sleep --ms=2000
 
 
 start-ble -> BleServer:

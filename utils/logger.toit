@@ -2,21 +2,14 @@ import log show Logger Target DefaultTarget level-name set-default DEBUG-LEVEL
 import net
 import net.udp
 import monitor show Channel
+import .env show LOGGER-ADDRESSES
 
 class WirelessLogTarget implements Target:
   socket/udp.Socket? := null
   log-queue/Channel ::= Channel 20
   is-sending_ /bool := false
   
-  // List of Tailnet and local destination addresses
-  addresses/List ::= [
-    net.SocketAddress (net.IpAddress.parse "100.69.0.100") 8888,
-    net.SocketAddress (net.IpAddress.parse "100.69.0.69") 8888,
-    net.SocketAddress (net.IpAddress.parse "100.69.0.14") 8888,
-    net.SocketAddress (net.IpAddress.parse "100.69.0.8") 8888,
-    net.SocketAddress (net.IpAddress.parse "100.69.0.67") 8888,
-    net.SocketAddress (net.IpAddress.parse "192.168.5.100") 8888,
-  ]
+  addresses/List ::= LOGGER-ADDRESSES
 
   serial/Target ::= DefaultTarget
 

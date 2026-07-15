@@ -4,6 +4,7 @@ import math
 import ..ble_server show BleServer
 
 class RgbLed:
+  generator     /pwm.Pwm
   red-channel   /pwm.PwmChannel
   green-channel /pwm.PwmChannel
   blue-channel  /pwm.PwmChannel
@@ -11,10 +12,10 @@ class RgbLed:
   red        /int := 0
   green      /int := 0
   blue       /int := 0
-  brightness /int := 100 // 0 -- 100
+  brightness /int := 100
 
   constructor --red/int --green/int --blue/int --.brightness/int=100:
-    generator := pwm.Pwm --frequency=1000
+    generator = pwm.Pwm --frequency=1000
     red-channel = generator.start (gpio.Pin red)
     green-channel = generator.start (gpio.Pin green)
     blue-channel = generator.start (gpio.Pin blue)
@@ -31,7 +32,6 @@ class RgbLed:
     update_
 
   update_ -> none:
-    // Scale current R, G, B by the 0-100 brightness percentage
     r-factor := (red * brightness) / (255.0 * 100.0)
     g-factor := (green * brightness) / (255.0 * 100.0)
     b-factor := (blue * brightness) / (255.0 * 100.0)
@@ -45,7 +45,7 @@ class RgbIndicator:
   led /RgbLed
   ble /BleServer
 
-  constructor .led .ble:
+  constructor .ble .led:
 
   start -> none:
     task:: run_
@@ -70,24 +70,7 @@ class RgbIndicator:
       else if state == BleServer.STATE-STARTING:
         r = 255; g = 128; b = 0 // Orange
       else if state == BleServer.STATE-ADVERTISING:
-        // Playful Flutter-style spring-breathing cycle (period = 2.0s -> 200 steps at 100Hz)
-        ticks := flash-ticks % 200
-        x := ticks / 200.0
-        
-        breathe-factor := 0.0
-        if x < 0.60:
-          // Swell & Spring: Flutter Elastic-Out spring bounce at the peak
-          t := x / 0.60
-          breathe-factor = (math.pow 2.0 (-8.0 * t)) * (math.sin (t * 22.0)) + 1.0
-        else:
-          // Cosine decay: Extremely soft, soothing fade-out
-          t := (x - 0.60) / 0.40
-          breathe-factor = 0.5 * (math.cos (t * math.PI) + 1.0)
-          
-        r = 0
-        g = 0
-        b = (255.0 * breathe-factor).to-int
-        flash-ticks++
+        r = 0; g = 0; b = 255 // Solid Blue
       else if state == BleServer.STATE-CONNECTED:
         r = 0; g = 255; b = 0 // Green
       else if state == BleServer.STATE-ERROR:
