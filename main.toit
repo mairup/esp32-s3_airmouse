@@ -2,10 +2,11 @@ import log
 import .ble_server show BleServer 
 import .tasks.heartbeat show Heartbeat
 import .utils.logger show logger-init
-import .utils.rgb_led show RgbLed RgbIndicator
+import .utils.rgb_led show RgbLed
+import .utils.rgb_indicator show RgbIndicator
 
 BLE-DEVICE-NAME ::= "ESP32-S3"
-DEBUG           ::= true
+DEBUG           ::= false
 
 // RGB LED GPIO Pins (top-left contiguous pins)
 RED-RGB-PIN   ::= 6
@@ -14,23 +15,22 @@ BLUE-RGB-PIN  ::= 4
 
 
 main:
-  // To run the normal airmouse app, uncomment this and comment out run-color-test below:
-  // run-airmouse-app
-  
-  // Running color diagnostic loop:
-  run-color-test
+  run-airmouse-app
+  // run-color-test
 
 
 run-airmouse-app:
-  // if DEBUG:
-  //   logger-init
-  //   log.info "Debug mode active (Wi-Fi UDP logger initialized)"
+  if DEBUG:
+    logger-init
+    log.info "Debug mode active (Wi-Fi UDP logger initialized)"
 
   log.info "$BLE-DEVICE-NAME starting..."
 
   exception := catch:
     log.info "Initializing RgbLed on R:$RED-RGB-PIN, G:$GREEN-RGB-PIN, B:$BLUE-RGB-PIN..."
+
     rgb-led := RgbLed --red=RED-RGB-PIN --green=GREEN-RGB-PIN --blue=BLUE-RGB-PIN --brightness=10
+    
     log.info "RgbLed initialized successfully"
 
     log.info "Initializing and starting BLE Server..."
