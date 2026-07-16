@@ -17,4 +17,5 @@ ENV/
 # Other
 scratch/
 utils/env.toit
+utils/config.toit
 

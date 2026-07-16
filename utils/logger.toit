@@ -7,14 +7,14 @@ import .env show LOGGER-ADDRESSES
 class WirelessLogTarget implements Target:
   socket/udp.Socket? := null
   log-queue/Channel ::= Channel 20
-  is-sending_ /bool := false
+  logger-task_ /Task? := null
   
   addresses/List ::= LOGGER-ADDRESSES
 
   serial/Target ::= DefaultTarget
 
   constructor:
-    task::
+    logger-task_ = task::
       send-loop_
 
   send-loop_:
@@ -23,26 +23,23 @@ class WirelessLogTarget implements Target:
       
       // Dynamic self-healing: Try to open the socket if not open yet
       if not socket:
-        is-sending_ = true
         try:
           catch: socket = net.open.udp-open --port=0
         finally:
-          is-sending_ = false
           
       if socket:
         datagram-bytes := "$msg\n".to-byte-array
-        is-sending_ = true
         try:
           addresses.do: |addr|
             catch: socket.send (udp.Datagram datagram-bytes addr)
         finally:
-          is-sending_ = false
+          //
 
   log level/int message/string names/List? keys/List? values/List? -> none:
     serial.log level message names keys values
     
     // Prevent recursive logging loops from within the network stack
-    if is-sending_: return
+    if Task.current == logger-task_: return
 
     buffer := ""
     if names and names.size > 0:
