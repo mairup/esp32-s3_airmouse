@@ -60,7 +60,7 @@ run-airmouse-app:
 
   start-main-heartbeat
     --send-to=:: |val/string| wireless-connection.send "$val\n"
-    --interval=(Duration --us=5000)
+    --interval=(Duration --ms=5)
 
 run-color-test:
   log.info "Starting color diagnostic test loop (switches every 2 seconds)..."
