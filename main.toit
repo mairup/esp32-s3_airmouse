@@ -2,6 +2,7 @@ import log
 import net
 import .wifi_server show WifiServer 
 import .tasks.heartbeat show Heartbeat
+import .tasks.button show ButtonService
 import .utils.logger show logger-init
 import .utils.rgb_led show RgbLed
 import .utils.rgb_indicator show RgbIndicator
@@ -10,7 +11,8 @@ import .utils.env show DEBUG
 
 DEVICE-NAME ::= "ESP32-S3"
 
-// RGB LED GPIO Pins (top-left contiguous pins)
+// GPIO Pins
+BUTTON-PIN    ::= 1
 RED-RGB-PIN   ::= 6
 GREEN-RGB-PIN ::= 5
 BLUE-RGB-PIN  ::= 4
@@ -44,18 +46,21 @@ run-airmouse-app:
   log.info "RgbLed initialized successfully"
 
   log.info "Initializing and starting Wi-Fi Server..."
-  server := start-wifi
+  wireless-connection := start-wifi
   log.info "Wi-Fi Server startup initiated successfully"
 
   log.info "Starting RgbIndicator..."
-  rgb-indicator := RgbIndicator server rgb-led
+  rgb-indicator := RgbIndicator wireless-connection rgb-led
   rgb-indicator.start
   log.info "RgbIndicator started"
 
   start-heartbeat
-    --send-to=:: |val/string| server.send "$val\n"
+    --send-to=:: |val/string| wireless-connection.send "$val\n"
     --interval=(Duration --ms=250)
 
+  button-service := ButtonService --pin-num=BUTTON-PIN --send-to=:: |val/string| wireless-connection.send val
+  button-service.start
+  log.info "ButtonService started on Pin $BUTTON-PIN"
 
 run-color-test:
   log.info "Starting color diagnostic test loop (switches every 2 seconds)..."

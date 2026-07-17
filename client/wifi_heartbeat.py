@@ -51,7 +51,11 @@ async def run_session(reader: asyncio.StreamReader, quit_event: asyncio.Event, a
                     alive_seconds = heartbeats * 0.25
                     print(f"\rRX: {text} (Device Uptime: {alive_seconds:.2f}s, Conn Alive: {elapsed:.2f}s)      ", flush=True, end="")
                 except ValueError:
-                    print(f"\rRX: {text} (Conn Alive: {elapsed:.2f}s)      ", flush=True, end="")
+                    if "BTN_DOWN" in text or "BTN_UP" in text:
+                        # Overwrite the current heartbeat line and print the event cleanly on its own line
+                        print(f"\r[{time.strftime('%H:%M:%S.%f')[:-3]}] {text:<60}")
+                    else:
+                        print(f"\rRX: {text} (Conn Alive: {elapsed:.2f}s)      ", flush=True, end="")
             except Exception as e:
                 break
         print("\n[Disconnected]")
