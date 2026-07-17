@@ -1,5 +1,5 @@
 import net
-import net.tcp as tcp
+import net.udp as udp
 import monitor show Channel
 import log
 
@@ -11,13 +11,14 @@ class WifiServer:
   static STATE-ERROR       ::= 4
 
   static PORT ::= 8889
+  static HEARTBEAT-TIMEOUT ::= Duration --ms=200
 
   /// Default state-change logger
   static print-state state/int context/any -> none:
     if state == STATE-ADVERTISING:
-      log.info "[Wi-Fi] Ready and listening"
+      log.info "[Wi-Fi] UDP server ready on port $PORT"
     else if state == STATE-CONNECTED:
-      log.info "[Wi-Fi] Client connected"
+      log.info "[Wi-Fi] Client registered"
     else if state == STATE-ERROR:
       log.error "[Wi-Fi] Error" --tags={"context": context}
     else if state == STATE-STOPPED:
@@ -30,15 +31,15 @@ class WifiServer:
 
   main-task /Task? := null
   network /net.Interface? := null
-  server-socket /tcp.ServerSocket? := null
-  client-socket /tcp.Socket? := null
+  server-socket /udp.Socket? := null
+  target-address /net.SocketAddress? := null
+  last-heartbeat-time /Time := Time.now
 
   constructor
       --.name/string
       --tx-queue-size=10:
     tx-bus = Channel tx-queue-size
 
-  /// Update state
   set-state new-state/int --context=null -> none:
     if state != new-state:
       state = new-state
@@ -48,55 +49,67 @@ class WifiServer:
         task::
           sleep --ms=100
           stop
-          log.info "[RECOVERY] Waiting 2s before restart..."
-          sleep --ms=2000
+          log.info "[RECOVERY] Waiting 0.5s before restart..."
+          sleep --ms=500
           start
     else: log.warn "Tried to reset the state" --tags={"state": state}
 
-  /// Start Wi-Fi adapter and TX loop in background
+  /// Start Wi-Fi adapter and TX loop
   start -> none:
     if main-task:
-      set-state STATE-ERROR --context="START_REQUESTED_WHILE_RUNNING"
+      log.warn "[Wi-Fi] start called while already running, ignoring"
       return
 
     set-state STATE-STARTING
     main-task = task::
       error := catch:
         network = net.open
-        server-socket = network.tcp-listen PORT
+        server-socket = network.udp-open --port=PORT
         log.info "Wi-Fi Server '$name' listening on $(network.address):$PORT"
+        set-state STATE-ADVERTISING
+        
+        task:: run-tx-loop
         
         while true:
-          set-state STATE-ADVERTISING
-          // Wait for client to connect
-          client-socket = server-socket.accept
-          set-state STATE-CONNECTED
-          log.info "[Wi-Fi] Client connected from $(client-socket.peer-address)"
-          
-          run-tx-loop
-          
-          catch: client-socket.close
-          client-socket = null
-          log.info "[Wi-Fi] Client disconnected"
+          // Wait for client to send a hello/heartbeat packet
+          datagram := server-socket.receive
+          last-heartbeat-time = Time.now
+          if not target-address or target-address != datagram.address:
+            target-address = datagram.address
+            log.info "[Wi-Fi] Client registered from $target-address"
+            if state != STATE-CONNECTED:
+              set-state STATE-CONNECTED
+              task:: run-heartbeat-timeout-check
             
       if error != "CANCELED":
         set-state STATE-ERROR --context=error
 
+  disconnect_ -> none:
+    if target-address:
+      log.info "[Wi-Fi] Client $target-address disconnected (timeout)"
+      target-address = null
+      if state == STATE-CONNECTED:
+        set-state STATE-ADVERTISING
+
+  run-heartbeat-timeout-check -> none:
+    while state == STATE-CONNECTED:
+      sleep --ms=50
+      if (last-heartbeat-time.to Time.now) > HEARTBEAT-TIMEOUT:
+        disconnect_
+        return
+
   /// Stream TX channel data to hardware while connected
   run-tx-loop -> none:
     clear-tx-queue_
-    while state == STATE-CONNECTED:
+    while state == STATE-ADVERTISING or state == STATE-CONNECTED:
       data/ByteArray := tx-bus.receive
-      if not transmit_ data: return
+      if target-address:
+        transmit_ data
 
   /// Transmit data to connected client.
-  /// Returns false on hardware or connection error.
-  transmit_ data/ByteArray -> bool:
-    error := catch: client-socket.out.write data
-    if error:
-      log.debug "[Wi-Fi] TX failed" --tags={"error": error}
-      return false
-    return true
+  transmit_ data/ByteArray -> none:
+    datagram := udp.Datagram data target-address
+    catch: server-socket.send datagram
 
   /// Cancel tasks and release hardware resources
   stop -> none:
@@ -104,9 +117,6 @@ class WifiServer:
       main-task.cancel
       main-task = null
 
-    if client-socket:
-      catch: client-socket.close
-      client-socket = null
     if server-socket:
       catch: server-socket.close
       server-socket = null
@@ -114,6 +124,7 @@ class WifiServer:
       catch: network.close
       network = null
       
+    target-address = null
     set-state STATE-STOPPED
 
   /// Enqueue data chunk to TX channel. 

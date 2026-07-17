@@ -1,5 +1,8 @@
 import gpio
 
+REDUNDANCY-COUNT    ::= 6
+REDUNDANCY-DELAY-MS ::= 7
+
 class ButtonService:
   pin /gpio.Pin
   send-to /Lambda
@@ -16,11 +19,15 @@ class ButtonService:
         if last-state == 1:
           pin.wait-for 0
           last-state = 0
-          send-to.call "BTN_DOWN\n"
+          REDUNDANCY-COUNT.repeat:
+            send-to.call "BTN_DOWN\n"
+            sleep --ms=REDUNDANCY-DELAY-MS
         else:
           pin.wait-for 1
           last-state = 1
-          send-to.call "BTN_UP\n"
+          REDUNDANCY-COUNT.repeat:
+            send-to.call "BTN_UP\n"
+            sleep --ms=REDUNDANCY-DELAY-MS
         
         // Debounce period: Sleep to ignore rapid contact bounces
         sleep --ms=30

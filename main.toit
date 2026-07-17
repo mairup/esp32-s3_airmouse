@@ -30,7 +30,7 @@ main:
   if exception:
     log.error "FATAL EXCEPTION in main" --tags={"error": exception}
     if DEBUG:
-      sleep --ms=2000 // Allow UDP network buffer to flush to PC
+      sleep --ms=500 // Allow UDP network buffer to flush to PC
     throw exception
 
 
@@ -54,13 +54,13 @@ run-airmouse-app:
   rgb-indicator.start
   log.info "RgbIndicator started"
 
-  start-heartbeat
-    --send-to=:: |val/string| wireless-connection.send "$val\n"
-    --interval=(Duration --ms=250)
-
   button-service := ButtonService --pin-num=BUTTON-PIN --send-to=:: |val/string| wireless-connection.send val
   button-service.start
   log.info "ButtonService started on Pin $BUTTON-PIN"
+
+  start-heartbeat
+    --send-to=:: |val/string| wireless-connection.send "$val\n"
+    --interval=(Duration --us=5000)
 
 run-color-test:
   log.info "Starting color diagnostic test loop (switches every 2 seconds)..."
@@ -96,7 +96,10 @@ start-heartbeat --send-to/Lambda --interval/Duration -> none:
   counter := 0
   heartbeat-service := Heartbeat
     --send-to=send-to
-    --generator=:: "$(counter++)"
+    --generator=::
+      uptime-ms := Time.monotonic-us / 1000
+      "HB:$(counter++):$uptime-ms"
     --interval=interval
   heartbeat-service.start
   log.info "Heartbeat started"
+
