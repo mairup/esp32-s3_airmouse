@@ -11,7 +11,7 @@ class WifiServer:
   static STATE-ERROR       ::= 4
 
   static PORT ::= 8889
-  static HEARTBEAT-TIMEOUT ::= Duration --ms=200
+  static HEARTBEAT-TIMEOUT ::= Duration --ms=500
 
   /// Default state-change logger
   static print-state state/int context/any -> none:
@@ -52,6 +52,7 @@ class WifiServer:
           log.info "[RECOVERY] Waiting 0.5s before restart..."
           sleep --ms=500
           start
+
     else: log.warn "Tried to reset the state" --tags={"state": state}
 
   /// Start Wi-Fi adapter and TX loop

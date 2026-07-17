@@ -58,7 +58,7 @@ run-airmouse-app:
   button-service.start
   log.info "ButtonService started on Pin $BUTTON-PIN"
 
-  start-heartbeat
+  start-main-heartbeat
     --send-to=:: |val/string| wireless-connection.send "$val\n"
     --interval=(Duration --us=5000)
 
@@ -92,7 +92,7 @@ start-wifi -> WifiServer:
   return server
 
 
-start-heartbeat --send-to/Lambda --interval/Duration -> none:
+start-main-heartbeat --send-to/Lambda --interval/Duration -> none:
   counter := 0
   heartbeat-service := Heartbeat
     --send-to=send-to
