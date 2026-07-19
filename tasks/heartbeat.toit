@@ -1,4 +1,3 @@
-
 class Heartbeat:
   send-to /Lambda
   generator /Lambda

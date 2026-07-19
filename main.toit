@@ -8,7 +8,9 @@ import .utils.rgb_led show RgbLed
 import .utils.rgb_indicator show RgbIndicator
 import .utils.env show DEBUG
 
-
+// ========================================================================
+// Constants
+// ========================================================================
 DEVICE-NAME ::= "ESP32-S3"
 
 // GPIO Pins
@@ -17,7 +19,9 @@ RED-RGB-PIN   ::= 6
 GREEN-RGB-PIN ::= 5
 BLUE-RGB-PIN  ::= 4
 
-
+// ========================================================================
+// Main Entry
+// ========================================================================
 main:
   if DEBUG:
     logger-init
@@ -33,7 +37,9 @@ main:
       sleep --ms=500 // Allow UDP network buffer to flush to PC
     throw exception
 
-
+// ========================================================================
+// App Setup & Loop
+// ========================================================================
 run-airmouse-app:
   log.info "$DEVICE-NAME starting..."
 
@@ -62,6 +68,31 @@ run-airmouse-app:
     --send-to=:: |val/string| wireless-connection.send "$val\n"
     --interval=(Duration --ms=5)
 
+// ========================================================================
+// Helper Services
+// ========================================================================
+start-wifi -> WifiServer:
+  server := WifiServer 
+    --name=DEVICE-NAME 
+    --tx-queue-size=42
+
+  server.start
+  return server
+
+start-main-heartbeat --send-to/Lambda --interval/Duration -> none:
+  counter := 0
+  heartbeat-service := Heartbeat
+    --send-to=send-to
+    --generator=::
+      uptime-ms := Time.monotonic-us / 1000
+      "HB:$(counter++):$uptime-ms"
+    --interval=interval
+  heartbeat-service.start
+  log.info "Heartbeat started"
+
+// ========================================================================
+// Diagnostics
+// ========================================================================
 run-color-test:
   log.info "Starting color diagnostic test loop (switches every 2 seconds)..."
   rgb-led := RgbLed --red=RED-RGB-PIN --green=GREEN-RGB-PIN --blue=BLUE-RGB-PIN --brightness=100
@@ -81,25 +112,3 @@ run-color-test:
     log.info "Setting ORANGE"
     rgb-led.set-color 255 128 0
     sleep --ms=2000
-
-
-start-wifi -> WifiServer:
-  server := WifiServer 
-    --name=DEVICE-NAME 
-    --tx-queue-size=42
-
-  server.start
-  return server
-
-
-start-main-heartbeat --send-to/Lambda --interval/Duration -> none:
-  counter := 0
-  heartbeat-service := Heartbeat
-    --send-to=send-to
-    --generator=::
-      uptime-ms := Time.monotonic-us / 1000
-      "HB:$(counter++):$uptime-ms"
-    --interval=interval
-  heartbeat-service.start
-  log.info "Heartbeat started"
-

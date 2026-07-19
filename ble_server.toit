@@ -18,7 +18,7 @@ class BleServer:
   static HARDWARE-RETRY-TIMEOUT  ::= Duration --s=1       //  hardware stack not starting -> hard crash
 
   /// Default state-change logger
-  static print-state state/int context/any -> none:
+  static print-state_ state/int context/any -> none:
     if state == STATE-ADVERTISING:
       log.info "[BLE] Ready and advertising"
     else if state == STATE-CONNECTED:
@@ -49,10 +49,10 @@ class BleServer:
     tx-bus = Channel tx-queue-size
 
   /// Update state
-  set-state new-state/int --context=null -> none:
+  set-state_ new-state/int --context=null -> none:
     if state != new-state:
       state = new-state
-      print-state state context
+      print-state_ state context
 
       if state == STATE-ERROR:
         task::
@@ -69,25 +69,25 @@ class BleServer:
   /// Start BLE adapter and TX loop in background
   start -> none:
     if main-task:
-      set-state STATE-ERROR --context="START_REQUESTED_WHILE_RUNNING"
+      set-state_ STATE-ERROR --context="START_REQUESTED_WHILE_RUNNING"
       return
 
-    set-state STATE-STARTING
+    set-state_ STATE-STARTING
     main-task = task::
       error := catch:
-        configure-adapter
+        configure-adapter_
         while true:
-          if connect-to-client:
-            run-tx-loop
+          if connect-to-client_:
+            run-tx-loop_
           else:
             sleep --ms=1000
             
       if error != "CANCELED":
-        set-state STATE-ERROR --context=error
+        set-state_ STATE-ERROR --context=error
 
 
   /// Initialize BLE peripheral and characteristic
-  configure-adapter -> none:
+  configure-adapter_ -> none:
     if adapter:
       catch: adapter.close
       adapter = null
@@ -95,7 +95,7 @@ class BleServer:
     adapter = Adapter
     peripheral = adapter.peripheral --name=name
     
-    try-add-service SERVICE-UUID
+    try-add-service_ SERVICE-UUID
     characteristic = service.add-notification-characteristic CHAR-UUID
     peripheral.deploy
 
@@ -106,7 +106,7 @@ class BleServer:
 
   /// Adds a service to the peripheral, retrying if the hardware is still busy
   /// from a previous session.
-  try-add-service uuid/BleUuid -> none:
+  try-add-service_ uuid/BleUuid -> none:
     start-time := Time.monotonic_us
     while true:
       error := catch: service = peripheral.add-service uuid
@@ -120,7 +120,7 @@ class BleServer:
 
   /// Starts advertising, retrying if the hardware is still busy
   /// from a previous session.
-  try-start-advertising -> none:
+  try-start-advertising_ -> none:
     start-time := Time.monotonic_us
     while true:
       catch: peripheral.stop-advertise
@@ -134,7 +134,7 @@ class BleServer:
         throw error
 
   /// Stream TX channel data to hardware while connected
-  run-tx-loop -> none:
+  run-tx-loop_ -> none:
     clear-tx-queue_
     last-health-check_ = Time.monotonic_us
     while state == STATE-CONNECTED:
@@ -145,7 +145,7 @@ class BleServer:
   /// Returns false on hardware or connection error.
   transmit_ data/ByteArray -> bool:
     if (Time.monotonic_us - last-health-check_) > HEALTH-CHECK-INTERVAL.in-us:
-      if not health-check:
+      if not health-check_:
         log.warn "[BLE] Health check failed, disconnecting"
         return false
 
@@ -160,8 +160,8 @@ class BleServer:
 
   /// Performs a connection health check.
   /// Returns true if the connection is healthy, false otherwise.
-  health-check -> bool:
-    if subscribed-clients.is-empty:
+  health-check_ -> bool:
+    if subscribed-clients_.is-empty:
       log.warn "[BLE] Connection lost (monitored)"
       return false
     last-health-check_ = Time.monotonic_us
@@ -170,7 +170,7 @@ class BleServer:
   /// Check if the client is still active and subscribed
   /// Returns a list of currently subscribed clients.
   /// Returns an empty list if the characteristic is not ready or if an error occurs.
-  subscribed-clients -> List:
+  subscribed-clients_ -> List:
     if not characteristic: return []
     resource := characteristic.resource_
     if not resource: return []
@@ -182,16 +182,16 @@ class BleServer:
           
   /// Advertise until device is connected to client. 
   /// Returns true when connected or false on error/timeout
-  connect-to-client -> bool:
-    set-state STATE-ADVERTISING
-    try-start-advertising
+  connect-to-client_ -> bool:
+    set-state_ STATE-ADVERTISING
+    try-start-advertising_
     log.info "BLE advertising as $name and is ready to connect"
 
     while state == STATE-ADVERTISING:
-      clients := subscribed-clients
+      clients := subscribed-clients_
       if not clients.is-empty:
         log.info "[BLE] Connection established" --tags={"clients": clients}
-        set-state STATE-CONNECTED
+        set-state_ STATE-CONNECTED
         return true
       sleep --ms=10
     return false
@@ -207,7 +207,7 @@ class BleServer:
     if adapter:
       adapter.close
       adapter = null
-    set-state STATE-STOPPED
+    set-state_ STATE-STOPPED
 
   /// Enqueue data chunk to TX channel. 
   /// Returns false if not ready or buffer full

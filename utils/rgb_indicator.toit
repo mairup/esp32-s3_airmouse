@@ -4,13 +4,21 @@ class RgbIndicator:
   led /RgbLed
   server /any
 
+  run-thread /Task? := null
+
   constructor .server .led:
 
   start -> none:
-    task:: run_
+    if run-thread: return
+    run-thread = task:: run_
+
+  stop -> none:
+    if run-thread:
+      run-thread.cancel
+      run-thread = null
+      catch: led.set-color 0 0 0
 
   run_ -> none:
-    
     last-r := -1
     last-g := -1
     last-b := -1

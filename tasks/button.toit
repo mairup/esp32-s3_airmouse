@@ -29,7 +29,7 @@ class ButtonService:
             send-to.call "BTN_UP\n"
             sleep --ms=REDUNDANCY-DELAY-MS
         
-        // Debounce period: Sleep to ignore rapid contact bounces
+        // Debounce period
         sleep --ms=30
 
   stop -> none:
