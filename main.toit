@@ -19,6 +19,8 @@ RED-RGB-PIN   ::= 6
 GREEN-RGB-PIN ::= 5
 BLUE-RGB-PIN  ::= 4
 
+HEARTBEAT-INTERVAL ::= Duration --ms=9
+
 // ========================================================================
 // Main Entry
 // ========================================================================
@@ -66,7 +68,7 @@ run-airmouse-app:
 
   start-main-heartbeat
     --send-to=:: |val/string| wireless-connection.send "$val\n"
-    --interval=(Duration --ms=5)
+    --interval=HEARTBEAT-INTERVAL
 
 // ========================================================================
 // Helper Services

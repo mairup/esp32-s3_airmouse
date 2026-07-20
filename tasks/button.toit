@@ -1,7 +1,7 @@
 import gpio
 
-REDUNDANCY-COUNT    ::= 6
-REDUNDANCY-DELAY-MS ::= 7
+REDUNDANCY-COUNT    ::= 3
+REDUNDANCY-DELAY-MS ::= 5
 
 class ButtonService:
   pin /gpio.Pin

@@ -15,7 +15,7 @@ ENV/
 .DS_Store
 
 # Other
-scratch/
 client/
+deprecated/
 utils/env.toit
 
