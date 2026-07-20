@@ -14,11 +14,11 @@ class WifiServer:
   static STATE-ERROR       ::= 4
 
   static PORT ::= 8889
-  static HEARTBEAT-TIMEOUT ::= Duration --ms=500
+  static HEARTBEAT-TIMEOUT ::= Duration --ms=1000
   static RECOVERY-DELAY    ::= Duration --ms=500
 
   // ========================================================================
-  // Instance Fields
+  // Properties
   // ========================================================================
   name /string
   tx-bus /Channel
