@@ -1,19 +1,25 @@
-
 class Heartbeat:
   send-to /Lambda
   generator /Lambda
-  interval-ms /int
+  interval /Duration
   run-thread /Task? := null
 
-  constructor --.send-to --.generator --.interval-ms=1000:
+  constructor --.send-to --.generator --.interval/Duration:
 
   start -> none:
     if run-thread: return
     run-thread = task::
+      next-time := Time.now + interval
       while true:
         val := generator.call
         send-to.call val
-        sleep --ms=interval-ms
+        now := Time.now
+        if next-time > now:
+          sleep (now.to next-time)
+        else:
+          sleep --ms=0
+          next-time = now
+        next-time += interval
 
   stop -> none:
     if run-thread:

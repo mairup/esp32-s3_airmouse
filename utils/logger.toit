@@ -5,40 +5,30 @@ import monitor show Channel
 import .env show LOGGER-ADDRESSES
 
 class WirelessLogTarget implements Target:
+  // ========================================================================
+  // Instance Fields
+  // ========================================================================
   socket/udp.Socket? := null
   log-queue/Channel ::= Channel 20
-  logger-task_ /Task? := null
   
   addresses/List ::= LOGGER-ADDRESSES
-
   serial/Target ::= DefaultTarget
+  logger-task_ /Task? := null
 
+  // ========================================================================
+  // Constructor
+  // ========================================================================
   constructor:
-    logger-task_ = task::
+    task::
+      logger-task_ = Task.current
       send-loop_
 
-  send-loop_:
-    while true:
-      msg := log-queue.receive
-      
-      // Dynamic self-healing: Try to open the socket if not open yet
-      if not socket:
-        try:
-          catch: socket = net.open.udp-open --port=0
-        finally:
-          
-      if socket:
-        datagram-bytes := "$msg\n".to-byte-array
-        try:
-          addresses.do: |addr|
-            catch: socket.send (udp.Datagram datagram-bytes addr)
-        finally:
-          //
-
+  // ========================================================================
+  // Public API
+  // ========================================================================
   log level/int message/string names/List? keys/List? values/List? -> none:
     serial.log level message names keys values
     
-    // Prevent recursive logging loops from within the network stack
     if Task.current == logger-task_: return
 
     buffer := ""
@@ -56,5 +46,24 @@ class WirelessLogTarget implements Target:
 
     log-queue.try-send buffer
 
+  // ========================================================================
+  // Private Core Loops
+  // ========================================================================
+  send-loop_:
+    while true:
+      msg := log-queue.receive
+      
+      // Dynamic self-healing: Try to open the socket if not open yet
+      if not socket:
+        catch: socket = net.open.udp-open --port=0
+          
+      if socket:
+        datagram-bytes := "$msg\n".to-byte-array
+        addresses.do: |addr|
+          catch: socket.send (udp.Datagram datagram-bytes addr)
+
+// ========================================================================
+// Top-Level Initialization
+// ========================================================================
 logger-init -> none:
   set-default (Logger DEBUG-LEVEL WirelessLogTarget)

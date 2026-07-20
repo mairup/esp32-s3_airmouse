@@ -1,38 +1,45 @@
-import ..ble_server show BleServer
 import .rgb_led show RgbLed
 
 class RgbIndicator:
   led /RgbLed
-  ble /BleServer
+  server /any
 
-  constructor .ble .led:
+  run-thread /Task? := null
+
+  constructor .server .led:
 
   start -> none:
-    task:: run_
+    if run-thread: return
+    run-thread = task:: run_
+
+  stop -> none:
+    if run-thread:
+      run-thread.cancel
+      run-thread = null
+      catch: led.set-color 0 0 0
 
   run_ -> none:
-    
     last-r := -1
     last-g := -1
     last-b := -1
 
     while true:
-      state := ble.state
+      state := server.state
       
       // Determine target colors
       r := 0
       g := 0
       b := 0
       
-      if state == BleServer.STATE-STOPPED:
+      if state == 0: // STATE-STOPPED
         r = 0; g = 0; b = 0
-      else if state == BleServer.STATE-STARTING:
+      else if state == 1: // STATE-STARTING
         r = 255; g = 128; b = 0 // Orange
-      else if state == BleServer.STATE-ADVERTISING:
+      else if state == 2: // STATE-ADVERTISING / LISTENING
         r = 0; g = 0; b = 255 // Solid Blue
-      else if state == BleServer.STATE-CONNECTED:
+      else if state == 3: // STATE-CONNECTED
         r = 0; g = 255; b = 0 // Green
-      else if state == BleServer.STATE-ERROR:
+      else if state == 4: // STATE-ERROR
         r = 255; g = 0; b = 0 // Red
 
       // Only write to physical PWM registers if color index actually changes
