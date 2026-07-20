@@ -19,26 +19,41 @@ ADDRESS-LOW ::= 0x6A
 ADDRESS-HIGH ::= 0x6B
 
 class Imu:
-  device_ /i2c.Device
+  sda-pin_ /int
+  scl-pin_ /int
+  device_ /i2c.Device? := null
 
-  constructor sda-pin/int scl-pin/int:
-    sda := gpio.Pin sda-pin
-    scl := gpio.Pin scl-pin
+  constructor --sda/int --scl/int:
+    sda-pin_ = sda
+    scl-pin_ = scl
 
-    bus := i2c.Bus --sda=sda --scl=scl
+  start -> none:
+    if device_: return
 
-    device_ = detect-imu bus
-    if device_ == null:
-      throw "IMU not found on I2C bus"
-    reset-imu_ device_
-    verify-imu-identification_ device_
-    configure-gyro_ device_
-    configure-accelerometer_ device_
-    enable-control-features_ device_
-    disable-unneeded-gyro-features_ device_
-    disable-unneeded-control-features_ device_
-    finish-imu-startup_ device_
-    log.info "IMU initialized successfully"
+    error := catch:
+      sda := gpio.Pin sda-pin_
+      scl := gpio.Pin scl-pin_
+
+      bus := i2c.Bus --sda=sda --scl=scl
+
+      detected := detect-imu bus
+      if not detected:
+        throw "IMU not found on I2C bus"
+      
+      device_ = detected
+      reset-imu_ detected
+      verify-imu-identification_ detected
+      configure-gyro_ detected
+      configure-accelerometer_ detected
+      enable-control-features_ detected
+      disable-unneeded-gyro-features_ detected
+      disable-unneeded-control-features_ detected
+      finish-imu-startup_ detected
+
+    if error:
+      log.warn "Failed to initialize IMU: $error. Continuing without IMU."
+    else:
+      log.info "IMU initialized successfully"
 
 reset-imu_ device/i2c.Device -> none:
   device.write-reg CTRL3-C #[0x01]

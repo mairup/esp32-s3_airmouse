@@ -22,7 +22,7 @@ BLUE-RGB-PIN  ::= 4
 SDA-PIN ::= 21 // I2C bus pins for IMU
 SCL-PIN ::= 20 // I2C bus pins for IMU
 
-HEARTBEAT-INTERVAL ::= Duration --ms=9
+HEARTBEAT-INTERVAL ::= Duration --ms=10
 // ========================================================================
 // Main Entry
 // ========================================================================
@@ -64,13 +64,14 @@ run-airmouse-app:
   rgb-indicator.start
   log.info "RgbIndicator started"
 
+  log.info "Setting up button service..."
   button-service := ButtonService --pin-num=BUTTON-PIN --send-to=:: |val/string| wireless-connection.send val
   button-service.start
   log.info "ButtonService started on Pin $BUTTON-PIN"
 
   log.info "Initializing IMU on SDA=$SDA-PIN, SCL=$SCL-PIN..."
-  imu-instance := Imu SDA-PIN SCL-PIN
-  log.info "IMU initialized successfully"
+  imu-instance := Imu --sda=SDA-PIN --scl=SCL-PIN
+  imu-instance.start
 
   start-main-heartbeat
     --send-to=:: |val/string| wireless-connection.send "$val\n"
