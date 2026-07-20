@@ -2,8 +2,9 @@ import log
 import net
 import .wifi_server show WifiServer 
 import .tasks.heartbeat show Heartbeat
+import .tasks.imu_heartbeat show ImuHeartbeat
 import .tasks.button show ButtonService
-import .imu show Imu
+import .imu show Imu gyro_x gyro_y gyro_z
 import .utils.logger show logger-init
 import .utils.rgb_led show RgbLed
 import .utils.rgb_indicator show RgbIndicator
@@ -23,6 +24,7 @@ SDA-PIN ::= 21 // I2C bus pins for IMU
 SCL-PIN ::= 20 // I2C bus pins for IMU
 
 HEARTBEAT-INTERVAL ::= Duration --ms=10
+IMU-HEARTBEAT-INTERVAL ::= Duration --ms=100
 // ========================================================================
 // Main Entry
 // ========================================================================
@@ -73,6 +75,11 @@ run-airmouse-app:
   imu-instance := Imu --sda=SDA-PIN --scl=SCL-PIN
   imu-instance.start
 
+  log.info "Starting IMU heartbeat..."
+  imu-heartbeat := ImuHeartbeat --imu=imu-instance --interval=IMU-HEARTBEAT-INTERVAL
+  imu-heartbeat.start
+  log.info "IMU heartbeat started"
+
   start-main-heartbeat
     --send-to=:: |val/string| wireless-connection.send "$val\n"
     --interval=HEARTBEAT-INTERVAL
@@ -102,6 +109,17 @@ start-main-heartbeat --send-to/Lambda --interval/Duration -> none:
 // ========================================================================
 // Diagnostics
 // ========================================================================
+display-imu-data:
+    log.info "Starting IMU data display loop..."
+    imu-instance := Imu --sda=SDA-PIN --scl=SCL-PIN
+    imu-instance.start
+    
+    while true:
+        imu-instance.read-gyro
+        log.info "Gyroscope Data - X: $gyro_x, Y: $gyro_y, Z: $gyro_z"
+        sleep --ms=2000
+  
+
 run-color-test:
   log.info "Starting color diagnostic test loop (switches every 2 seconds)..."
   rgb-led := RgbLed --red=RED-RGB-PIN --green=GREEN-RGB-PIN --blue=BLUE-RGB-PIN --brightness=100

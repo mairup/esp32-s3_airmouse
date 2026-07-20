@@ -19,6 +19,10 @@ OUTPUT-X-LOW-ACCELEROMETER ::= 0x28
 ADDRESS-LOW ::= 0x6A
 ADDRESS-HIGH ::= 0x6B
 
+gyro_x := 0
+gyro_y := 0
+gyro_z := 0
+
 class Imu:
   sda-pin_ /int
   scl-pin_ /int
@@ -51,6 +55,7 @@ class Imu:
       disable-unneeded-gyro-features_
       disable-unneeded-control-features_
       finish-imu-startup_
+      read-gyro
 
     if error:
       log.warn "Failed to initialize IMU: $error. Continuing without IMU."
@@ -92,6 +97,26 @@ class Imu:
 
   finish-imu-startup_ -> none:
     sleep --ms=10
+
+  read-gyro -> none:
+    if not device_:
+      log.warn "Attempted to read gyro data before IMU was initialized"
+      return
+    status := device_.read-reg STATUS-REGISTER 1
+    if (status[0] & 0x02) == 0:
+      return
+
+    raw-data := device_.read-reg OUTPUT-X-LOW-GYROSCOPE 6
+    gyro_x = to-signed-16_ (raw-data[0] | (raw-data[1] << 8))
+    gyro_y = to-signed-16_ (raw-data[2] | (raw-data[3] << 8))
+    gyro_z = to-signed-16_ (raw-data[4] | (raw-data[5] << 8))
+
+    log.info "Gyro x=$(gyro_x) y=$(gyro_y) z=$(gyro_z)"
+
+  to-signed-16_ value/int -> int:
+    if value >= 32768:
+      return value - 65536
+    return value
 
   detect-imu_ bus/i2c.Bus -> i2c.Device?:
     log.info "Scanning I2C bus for LSM6DSOX..."
