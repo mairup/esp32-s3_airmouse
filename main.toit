@@ -3,6 +3,7 @@ import net
 import .wifi_server show WifiServer 
 import .tasks.heartbeat show Heartbeat
 import .tasks.button show ButtonService
+import .imu show Imu
 import .utils.logger show logger-init
 import .utils.rgb_led show RgbLed
 import .utils.rgb_indicator show RgbIndicator
@@ -18,7 +19,8 @@ BUTTON-PIN    ::= 1
 RED-RGB-PIN   ::= 6
 GREEN-RGB-PIN ::= 5
 BLUE-RGB-PIN  ::= 4
-
+SDA-PIN ::= 21 // I2C bus pins for IMU
+SCL-PIN ::= 20 // I2C bus pins for IMU
 // ========================================================================
 // Main Entry
 // ========================================================================
@@ -64,9 +66,15 @@ run-airmouse-app:
   button-service.start
   log.info "ButtonService started on Pin $BUTTON-PIN"
 
+  log.info "Initializing IMU on SDA=$SDA-PIN, SCL=$SCL-PIN..."
+  imu-instance := Imu SDA-PIN SCL-PIN
+  log.info "IMU initialized successfully"
+
   start-main-heartbeat
     --send-to=:: |val/string| wireless-connection.send "$val\n"
     --interval=(Duration --ms=5)
+  
+
 
 // ========================================================================
 // Helper Services
