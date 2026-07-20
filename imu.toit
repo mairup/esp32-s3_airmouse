@@ -1,81 +1,106 @@
 import gpio
 import i2c
 import log
-WHO-AM-I-REG ::= 0x0F
+
+WHO-AM-I-REGISTER ::= 0x0F
 WHO-AM-I-VALUE ::= 0x6C
 
-CTRL1-XL ::= 0x10
-CTRL2-G ::= 0x11
-CTRL3-C ::= 0x12
-CTRL4-C ::= 0x13
-CTRL6-C ::= 0x15
-CTRL7-G ::= 0x16
+CONTROL-REGISTER-1-ACCELEROMETER ::= 0x10
+CONTROL-REGISTER-2-GYROSCOPE ::= 0x11
+CONTROL-REGISTER-3-COMMON ::= 0x12
+CONTROL-REGISTER-4-COMMON ::= 0x13
+CONTROL-REGISTER-6-COMMON ::= 0x15
+CONTROL-REGISTER-7-GYROSCOPE ::= 0x16
 
-STATUS-REG ::= 0x1E
-OUTX-L-G ::= 0x22
-OUTX-L-A ::= 0x28
+STATUS-REGISTER ::= 0x1E
+OUTPUT-X-LOW-GYROSCOPE ::= 0x22
+OUTPUT-X-LOW-ACCELEROMETER ::= 0x28
 
 ADDRESS-LOW ::= 0x6A
 ADDRESS-HIGH ::= 0x6B
 
 class Imu:
-  device_ /i2c.Device
+  sda-pin_ /int
+  scl-pin_ /int
+  device_ /i2c.Device? := null
 
-  constructor sda-pin/int scl-pin/int:
-    sda := gpio.Pin sda-pin
-    scl := gpio.Pin scl-pin
+  constructor --sda/int --scl/int:
+    sda-pin_ = sda
+    scl-pin_ = scl
 
-    bus := i2c.Bus --sda=sda --scl=scl
+  start -> none:
+    if device_: return
 
-    device_ = detect-imu bus
-    if device_ == null:
-      throw "IMU not found on I2C bus"
-    reset-imu_ device_
-    verify-imu-identification_ device_
-    configure-gyro_ device_
-    configure-accelerometer_ device_
-    enable-control-features_ device_
-    disable-unneeded-gyro-features_ device_
-    disable-unneeded-control-features_ device_
-    finish-imu-startup_ device_
-    log.info "IMU initialized successfully"
+    error := catch:
+      sda := gpio.Pin sda-pin_
+      scl := gpio.Pin scl-pin_
 
-reset-imu_ device/i2c.Device -> none:
-  device.write-reg CTRL3-C #[0x01]
-  sleep --ms=50
+      bus := i2c.Bus --sda=sda --scl=scl
 
-verify-imu-identification_ device/i2c.Device -> none:
-  id := device.read-reg WHO-AM-I-REG 1
-  if id[0] != WHO-AM-I-VALUE:
-    throw "IMU not found: WHO_AM_I=0x$(%02x id[0]), expected 0x$(%02x WHO-AM-I-VALUE)"
+      device-detected := detect-imu_ bus
+      if not device-detected:
+        throw "IMU not found on I2C bus"
+      
+      device_ = device-detected
+      
+      reset-imu_
+      verify-imu-identification_
+      configure-gyro_
+      configure-accelerometer_
+      enable-control-features_
+      disable-unneeded-gyro-features_
+      disable-unneeded-control-features_
+      finish-imu-startup_
 
-configure-gyro_ device/i2c.Device -> none:
-  device.write-reg CTRL2-G #[0x44]
+    if error:
+      log.warn "Failed to initialize IMU: $error. Continuing without IMU."
+    else:
+      log.info "IMU initialized successfully"
 
-configure-accelerometer_ device/i2c.Device -> none:
-  device.write-reg CTRL1-XL #[0x22]
+  /// Performs a software reset of the IMU by setting the SW_RESET bit (0x01).
+  reset-imu_ -> none:
+    device_.write-reg CONTROL-REGISTER-3-COMMON #[0x01]
+    sleep --ms=50
 
-enable-control-features_ device/i2c.Device -> none:
-  device.write-reg CTRL3-C #[0x44]
+  verify-imu-identification_ -> none:
+    device-identification := device_.read-reg WHO-AM-I-REGISTER 1
+    if device-identification[0] != WHO-AM-I-VALUE:
+      throw "IMU not found: WHO_AM_I=0x$(%02x device-identification[0]), expected 0x$(%02x WHO-AM-I-VALUE)"
 
-disable-unneeded-gyro-features_ device/i2c.Device -> none:
-  device.write-reg CTRL7-G #[0x00]
+  /// Configures Gyroscope: Output Data Rate = 416 Hz, Full Scale = ±500 dps.
+  /// Binary value 0x74 (0111 0100) sets the upper nibble for ODR and lower for FS.
+  configure-gyro_ -> none:
+    device_.write-reg CONTROL-REGISTER-2-GYROSCOPE #[0x74]
 
-disable-unneeded-control-features_ device/i2c.Device -> none:
-  device.write-reg CTRL4-C #[0x00]
-  device.write-reg CTRL6-C #[0x00]
+  /// Configures Accelerometer: Output Data Rate = 416 Hz, Full Scale = ±4g.
+  /// Binary value 0x72 (0111 0010) sets the upper nibble for ODR and lower for FS.
+  configure-accelerometer_ -> none:
+    device_.write-reg CONTROL-REGISTER-1-ACCELEROMETER #[0x72]
 
-finish-imu-startup_ device/i2c.Device -> none:
-  sleep --ms=10
+  /// Enables Block Data Update (BDU) to prevent reading partial data, 
+  /// and enables Address Auto-Increment (IF_INC) for burst reads.
+  /// Binary value 0x44 (0100 0100) sets BDU (bit 6) and IF_INC (bit 2).
+  enable-control-features_ -> none:
+    device_.write-reg CONTROL-REGISTER-3-COMMON #[0x44]
 
-detect-imu bus/i2c.Bus -> i2c.Device?:
-  log.info "Scanning I2C bus for LSM6DSOX..."
-  found := bus.scan
-  log.info "Found devices at: $found"
-  if found.contains ADDRESS-LOW:
-    log.info  "Found IMU at 0x$(%02x ADDRESS-LOW) (SA0=GND)"
-    return bus.device ADDRESS-LOW
-  if found.contains ADDRESS-HIGH:
-    log.info "Found IMU at 0x$(%02x ADDRESS-HIGH) (SA0=VDDIO)"
-    return bus.device ADDRESS-HIGH
-  return null
+  disable-unneeded-gyro-features_ -> none:
+    device_.write-reg CONTROL-REGISTER-7-GYROSCOPE #[0x00]
+
+  disable-unneeded-control-features_ -> none:
+    device_.write-reg CONTROL-REGISTER-4-COMMON #[0x00]
+    device_.write-reg CONTROL-REGISTER-6-COMMON #[0x00]
+
+  finish-imu-startup_ -> none:
+    sleep --ms=10
+
+  detect-imu_ bus/i2c.Bus -> i2c.Device?:
+    log.info "Scanning I2C bus for LSM6DSOX..."
+    detected-addresses := bus.scan
+    log.info "Found devices at: $detected-addresses"
+    if detected-addresses.contains ADDRESS-LOW:
+      log.info "Found IMU at 0x$(%02x ADDRESS-LOW) (SA0=GND)"
+      return bus.device ADDRESS-LOW
+    if detected-addresses.contains ADDRESS-HIGH:
+      log.info "Found IMU at 0x$(%02x ADDRESS-HIGH) (SA0=VDDIO)"
+      return bus.device ADDRESS-HIGH
+    return null
