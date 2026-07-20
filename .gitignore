@@ -17,6 +17,5 @@ ENV/
 # Other
 client/
 deprecated/
-utils/env.toit
 utils/config.toit
 
