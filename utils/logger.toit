@@ -4,6 +4,19 @@ import net.udp
 import monitor show Channel
 import .env show LOGGER-ADDRESSES
 
+/**
+WirelessLogTarget broadcasts logs over UDP to the web log server.
+
+The remote web server dashboard parses these logs and styles them automatically:
+- `log.debug "msg"`         -> displayed as "🐛 DEBUG: msg" (purple)
+- `log.info "msg"`          -> displayed as "ℹ️ INFO: msg" (blue)
+- `log.warn "msg"`          -> displayed as "⚠️ WARN: msg" (yellow)
+- `log.error "msg"`         -> displayed as "❌ ERROR: msg" (red)
+- `log.info "SUCCESS: msg"` -> displayed as "✅ SUCCESS: msg" (green)
+
+Note: Toit does not have a built-in SUCCESS level, so we achieve the green 
+success styling on the frontend by prepending "SUCCESS: " to an info log.
+*/
 class WirelessLogTarget implements Target:
   // ========================================================================
   // Instance Fields

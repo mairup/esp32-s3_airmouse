@@ -55,7 +55,7 @@ class Imu:
     if error:
       log.warn "Failed to initialize IMU: $error. Continuing without IMU."
     else:
-      log.info "IMU initialized successfully"
+      log.info "SUCCESS: IMU initialized successfully"
 
   /// Performs a software reset of the IMU by setting the SW_RESET bit (0x01).
   reset-imu_ -> none:
@@ -94,13 +94,13 @@ class Imu:
     sleep --ms=10
 
   detect-imu_ bus/i2c.Bus -> i2c.Device?:
-    log.info "Scanning I2C bus for LSM6DSOX..."
+    log.debug "Scanning I2C bus for LSM6DSOX..."
     detected-addresses := bus.scan
-    log.info "Found devices at: $detected-addresses"
+    log.debug "Found devices at: $detected-addresses"
     if detected-addresses.contains ADDRESS-LOW:
-      log.info "Found IMU at 0x$(%02x ADDRESS-LOW) (SA0=GND)"
+      log.info "SUCCESS: Found IMU at 0x$(%02x ADDRESS-LOW) (SA0=GND)"
       return bus.device ADDRESS-LOW
     if detected-addresses.contains ADDRESS-HIGH:
-      log.info "Found IMU at 0x$(%02x ADDRESS-HIGH) (SA0=VDDIO)"
+      log.info "SUCCESS: Found IMU at 0x$(%02x ADDRESS-HIGH) (SA0=VDDIO)"
       return bus.device ADDRESS-HIGH
     return null

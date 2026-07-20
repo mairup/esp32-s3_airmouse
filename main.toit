@@ -29,7 +29,7 @@ HEARTBEAT-INTERVAL ::= Duration --ms=10
 main:
   if DEBUG:
     logger-init
-    log.info "Debug mode active (Wi-Fi UDP logger initialized)"
+    log.debug "Debug mode active (Wi-Fi UDP logger initialized)"
     log.info "---------  MAIN ENTRY  ----------"
 
   exception := catch:
@@ -49,25 +49,25 @@ run-airmouse-app:
 
   log.info "Opening network..."
   network := net.open
-  log.info "Network opened! IP: $(network.address)"
+  log.info "SUCCESS: Network opened! IP: $(network.address)"
 
   log.info "Initializing RgbLed on R:$RED-RGB-PIN, G:$GREEN-RGB-PIN, B:$BLUE-RGB-PIN..."
   rgb-led := RgbLed --red=RED-RGB-PIN --green=GREEN-RGB-PIN --blue=BLUE-RGB-PIN --brightness=10
-  log.info "RgbLed initialized successfully"
+  log.info "SUCCESS: RgbLed initialized successfully"
 
   log.info "Initializing and starting Wi-Fi Server..."
   wireless-connection := start-wifi
-  log.info "Wi-Fi Server startup initiated successfully"
+  log.info "SUCCESS: Wi-Fi Server startup initiated successfully"
 
   log.info "Starting RgbIndicator..."
   rgb-indicator := RgbIndicator wireless-connection rgb-led
   rgb-indicator.start
-  log.info "RgbIndicator started"
+  log.info "SUCCESS: RgbIndicator started"
 
   log.info "Setting up button service..."
   button-service := ButtonService --pin-num=BUTTON-PIN --send-to=:: |val/string| wireless-connection.send val
   button-service.start
-  log.info "ButtonService started on Pin $BUTTON-PIN"
+  log.info "SUCCESS: ButtonService started on Pin $BUTTON-PIN"
 
   log.info "Initializing IMU on SDA=$SDA-PIN, SCL=$SCL-PIN..."
   imu-instance := Imu --sda=SDA-PIN --scl=SCL-PIN
@@ -97,7 +97,7 @@ start-main-heartbeat --send-to/Lambda --interval/Duration -> none:
       "HB:$(counter++):$uptime-ms"
     --interval=interval
   heartbeat-service.start
-  log.info "Heartbeat started"
+  log.info "SUCCESS: Heartbeat started"
 
 // ========================================================================
 // Diagnostics

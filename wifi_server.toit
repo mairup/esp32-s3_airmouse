@@ -79,13 +79,13 @@ class WifiServer:
   // ========================================================================
   static log-state-change_ state/int --context=null -> none:
     if state == STATE-ADVERTISING:
-      log.info "[Wi-Fi] UDP server advertising on port $PORT"
+      log.info "SUCCESS: [Wi-Fi] UDP server advertising on port $PORT"
     else if state == STATE-CONNECTED:
-      log.info "[Wi-Fi] Client registered"
+      log.info "SUCCESS: [Wi-Fi] Client registered"
     else if state == STATE-ERROR:
       log.error "[Wi-Fi] Error" --tags={"context": context}
     else if state == STATE-STOPPED:
-      log.info "[Wi-Fi] Service stopped"
+      log.warn "[Wi-Fi] Service stopped"
 
   set-state_ new-state/int --context=null -> none:
     if state == new-state: return
@@ -95,7 +95,7 @@ class WifiServer:
   register-client_ address/net.SocketAddress -> none:
     if not target-address or target-address != address:
       target-address = address
-      log.info "[Wi-Fi] Client registered from $target-address"
+      log.info "SUCCESS: [Wi-Fi] Client registered from $target-address"
     if state != STATE-CONNECTED:
       set-state_ STATE-CONNECTED
       if heartbeat-task: heartbeat-task.cancel
@@ -103,7 +103,7 @@ class WifiServer:
 
   handle-client-timeout_ -> none:
     if target-address:
-      log.info "[Wi-Fi] Client $target-address disconnected (timeout)"
+      log.warn "[Wi-Fi] Client $target-address disconnected (timeout)"
       target-address = null
       if state == STATE-CONNECTED:
         set-state_ STATE-ADVERTISING
@@ -114,7 +114,7 @@ class WifiServer:
   run-server_ error-latch/Latch -> none:
     network = net.open
     server-socket = network.udp-open --port=PORT
-    log.info "Wi-Fi Server '$name' listening on $(network.address):$PORT"
+    log.info "SUCCESS: Wi-Fi Server '$name' listening on $(network.address):$PORT"
     set-state_ STATE-ADVERTISING
 
     tx-task = task:: run-tx-loop_
