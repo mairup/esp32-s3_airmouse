@@ -12,6 +12,8 @@ CONTROL-REGISTER-4-COMMON ::= 0x13
 CONTROL-REGISTER-6-COMMON ::= 0x15
 CONTROL-REGISTER-7-GYROSCOPE ::= 0x16
 
+INT1-CTRL ::= 0x0D
+
 STATUS-REGISTER ::= 0x1E
 OUTPUT-X-LOW-GYROSCOPE ::= 0x22
 OUTPUT-X-LOW-ACCELEROMETER ::= 0x28
@@ -26,15 +28,18 @@ gyro_z := 0
 class Imu:
   sda-pin_ /int
   scl-pin_ /int
+  int-pin_ /int
   device_ /i2c.Device? := null
 
-  constructor --sda/int --scl/int:
+  constructor --sda/int --scl/int --int-pin/int:
     sda-pin_ = sda
     scl-pin_ = scl
+    int-pin_ = int-pin
 
   start -> none:
     if device_: return
 
+    log.info "Initializing IMU on SDA=$sda-pin_, SCL=$scl-pin_, INT=$int-pin_..."
     error := catch:
       sda := gpio.Pin sda-pin_
       scl := gpio.Pin scl-pin_
@@ -54,8 +59,9 @@ class Imu:
       enable-control-features_
       disable-unneeded-gyro-features_
       disable-unneeded-control-features_
+      configure-interrupts_
+      configure-hardware-filters_
       finish-imu-startup_
-      read-gyro
 
     if error:
       log.warn "Failed to initialize IMU: $error. Continuing without IMU."
@@ -93,6 +99,11 @@ class Imu:
 
   disable-unneeded-control-features_ -> none:
     device_.write-reg CONTROL-REGISTER-4-COMMON #[0x00]
+
+  configure-interrupts_ -> none:
+    device_.write-reg INT1-CTRL #[0x02]
+
+  configure-hardware-filters_ -> none:
     device_.write-reg CONTROL-REGISTER-6-COMMON #[0x00]
 
   finish-imu-startup_ -> none:
@@ -101,6 +112,7 @@ class Imu:
   read-gyro -> none:
     if not device_:
       log.warn "Attempted to read gyro data before IMU was initialized"
+      sleep --ms=100
       return
     status := device_.read-reg STATUS-REGISTER 1
     if (status[0] & 0x02) == 0:
@@ -111,7 +123,7 @@ class Imu:
     gyro_y = to-signed-16_ (raw-data[2] | (raw-data[3] << 8))
     gyro_z = to-signed-16_ (raw-data[4] | (raw-data[5] << 8))
 
-    log.info "Gyro x=$(gyro_x) y=$(gyro_y) z=$(gyro_z)"
+    // log.info "Gyro x=$(gyro_x) y=$(gyro_y) z=$(gyro_z)"
 
   to-signed-16_ value/int -> int:
     if value >= 32768:

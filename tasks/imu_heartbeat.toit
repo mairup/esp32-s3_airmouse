@@ -1,3 +1,4 @@
+import log
 import ..imu show Imu
 
 class ImuHeartbeat:
@@ -9,10 +10,17 @@ class ImuHeartbeat:
 
   start -> none:
     if run-thread: return
-    run-thread = task::
-      while true:
-        imu.read-gyro
-        sleep interval
+    log.info "Starting IMU Heartbeat..."
+    error := catch:
+      run-thread = task::
+        while true:
+          imu.read-gyro
+          sleep interval
+    if error:
+      log.error "Failed to start IMU Heartbeat: $error"
+      throw error
+    else:
+      log.info "SUCCESS: IMU Heartbeat started"
 
   stop -> none:
     if run-thread:

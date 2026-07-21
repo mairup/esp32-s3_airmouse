@@ -1,3 +1,4 @@
+import log
 import .rgb_led show RgbLed
 
 class RgbIndicator:
@@ -10,7 +11,14 @@ class RgbIndicator:
 
   start -> none:
     if run-thread: return
-    run-thread = task:: run_
+    log.info "Starting RgbIndicator..."
+    error := catch:
+      run-thread = task:: run_
+    if error:
+      log.error "Failed to start RgbIndicator: $error"
+      throw error
+    else:
+      log.info "SUCCESS: RgbIndicator started"
 
   stop -> none:
     if run-thread:

@@ -50,6 +50,7 @@ class WifiServer:
       log.warn "[Wi-Fi] start called while already running, ignoring"
       return
 
+    log.info "Initializing and starting Wi-Fi Server..."
     set-state_ STATE-STARTING
     main-task = task::
       while true:
@@ -62,6 +63,7 @@ class WifiServer:
         release-resources_
         sleep RECOVERY-DELAY
         set-state_ STATE-STARTING
+    log.info "SUCCESS: Wi-Fi Server startup initiated successfully"
 
   stop -> none:
     main-task = cancel-task_ main-task
@@ -112,7 +114,9 @@ class WifiServer:
   // Core Loops
   // ========================================================================
   run-server_ error-latch/Latch -> none:
+    log.info "Opening network..."
     network = net.open
+    log.info "SUCCESS: Network opened! IP: $(network.address)"
     server-socket = network.udp-open --port=PORT
     log.info "SUCCESS: Wi-Fi Server '$name' listening on $(network.address):$PORT"
     set-state_ STATE-ADVERTISING

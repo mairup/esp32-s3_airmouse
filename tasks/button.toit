@@ -1,4 +1,5 @@
 import gpio
+import log
 
 REDUNDANCY-COUNT    ::= 2
 REDUNDANCY-DELAY-MS ::= 10
@@ -9,10 +10,13 @@ class ButtonService:
   run-thread /Task? := null
 
   constructor --pin-num/int --.send-to:
+    log.info "Setting up button service on Pin $pin-num..."
     pin = gpio.Pin pin-num --input --pull-up=true
+    log.info "SUCCESS: ButtonService initialized on Pin $pin-num"
 
   start -> none:
     if run-thread: return
+    log.info "Starting ButtonService..."
     run-thread = task::
       last-state := 1
       while true:
@@ -31,6 +35,7 @@ class ButtonService:
         
         // Debounce period
         sleep --ms=30
+    log.info "SUCCESS: ButtonService started"
 
   stop -> none:
     if run-thread:

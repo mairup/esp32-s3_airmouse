@@ -26,11 +26,13 @@ class RgbLed:
       --blue/int 
       --.brightness/int=100:
         
+    log.info "Initializing RgbLed on R:$red, G:$green, B:$blue..."
     generator = pwm.Pwm --frequency=1000
     red-channel = generator.start (gpio.Pin red)
     green-channel = generator.start (gpio.Pin green)
     blue-channel = generator.start (gpio.Pin blue)
     update_
+    log.info "SUCCESS: RgbLed initialized successfully"
 
   // ========================================================================
   // Public API

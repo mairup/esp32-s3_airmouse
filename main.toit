@@ -1,13 +1,14 @@
 import log
-import net
 import .wifi_server show WifiServer 
 import .tasks.heartbeat show Heartbeat
-import .tasks.imu_heartbeat show ImuHeartbeat
+import .tasks.imu_reader show ImuReader
 import .tasks.button show ButtonService
 import .imu show Imu gyro_x gyro_y gyro_z
 import .utils.logger show logger-init
 import .utils.rgb_led show RgbLed
 import .utils.rgb_indicator show RgbIndicator
+import .utils.overload_led show OverloadLed
+import .tasks.cpu_monitor show CpuMonitor
 import .utils.env show DEBUG
 
 // ========================================================================
@@ -22,9 +23,11 @@ GREEN-RGB-PIN ::= 5
 BLUE-RGB-PIN  ::= 4
 SDA-PIN ::= 21
 SCL-PIN ::= 20
+INT-PIN ::= 7
+OVERLOAD-LED-PIN ::= 2
 
 HEARTBEAT-INTERVAL ::= Duration --ms=10
-IMU-HEARTBEAT-INTERVAL ::= Duration --ms=100
+
 // ========================================================================
 // Main Entry
 // ========================================================================
@@ -49,36 +52,28 @@ main:
 run-airmouse-app:
   log.info "$DEVICE-NAME starting..."
 
-  log.info "Opening network..."
-  network := net.open
-  log.info "SUCCESS: Network opened! IP: $(network.address)"
-
-  log.info "Initializing RgbLed on R:$RED-RGB-PIN, G:$GREEN-RGB-PIN, B:$BLUE-RGB-PIN..."
   rgb-led := RgbLed --red=RED-RGB-PIN --green=GREEN-RGB-PIN --blue=BLUE-RGB-PIN --brightness=10
-  log.info "SUCCESS: RgbLed initialized successfully"
 
-  log.info "Initializing and starting Wi-Fi Server..."
-  wireless-connection := start-wifi
-  log.info "SUCCESS: Wi-Fi Server startup initiated successfully"
+  overload-led := OverloadLed --pin-num=OVERLOAD-LED-PIN
 
-  log.info "Starting RgbIndicator..."
+  cpu-monitor := CpuMonitor --led=overload-led
+  cpu-monitor.start
+
+  wireless-connection := WifiServer --name=DEVICE-NAME --tx-queue-size=42
+  wireless-connection.start
+
   rgb-indicator := RgbIndicator wireless-connection rgb-led
   rgb-indicator.start
-  log.info "SUCCESS: RgbIndicator started"
 
-  log.info "Setting up button service..."
-  button-service := ButtonService --pin-num=BUTTON-PIN --send-to=:: |val/string| wireless-connection.send val
+  button-service := ButtonService --pin-num=BUTTON-PIN --send-to=:: |val/string|
+    wireless-connection.send val
   button-service.start
-  log.info "SUCCESS: ButtonService started on Pin $BUTTON-PIN"
 
-  log.info "Initializing IMU on SDA=$SDA-PIN, SCL=$SCL-PIN..."
-  imu := Imu --sda=SDA-PIN --scl=SCL-PIN
+  imu := Imu --sda=SDA-PIN --scl=SCL-PIN --int-pin=INT-PIN
   imu.start
 
-  log.info "Starting IMU heartbeat..."
-  imu-heartbeat := ImuHeartbeat --imu=imu --interval=IMU-HEARTBEAT-INTERVAL
-  imu-heartbeat.start
-  log.info "IMU heartbeat started"
+  imu-reader := ImuReader --imu=imu --int-pin-num=INT-PIN --cpu-monitor=cpu-monitor
+  imu-reader.start
 
   start-main-heartbeat
     --send-to=:: |val/string| wireless-connection.send "$val\n"
@@ -87,14 +82,6 @@ run-airmouse-app:
 // ========================================================================
 // Helper Services
 // ========================================================================
-start-wifi -> WifiServer:
-  server := WifiServer 
-    --name=DEVICE-NAME 
-    --tx-queue-size=42
-
-  server.start
-  return server
-
 start-main-heartbeat --send-to/Lambda --interval/Duration -> none:
   counter := 0
   heartbeat-service := Heartbeat
@@ -104,14 +91,13 @@ start-main-heartbeat --send-to/Lambda --interval/Duration -> none:
       "HB:$(counter++):$uptime-ms"
     --interval=interval
   heartbeat-service.start
-  log.info "SUCCESS: Heartbeat started"
 
 // ========================================================================
 // Diagnostics
 // ========================================================================
 display-imu-data:
     log.info "Starting IMU data display loop..."
-    imu-instance := Imu --sda=SDA-PIN --scl=SCL-PIN
+    imu-instance := Imu --sda=SDA-PIN --scl=SCL-PIN --int-pin=INT-PIN
     imu-instance.start
     
     while true:
