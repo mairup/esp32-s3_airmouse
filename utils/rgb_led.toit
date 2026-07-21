@@ -1,5 +1,6 @@
 import gpio
 import gpio.pwm
+import log
 import math
 
 class RgbLed:
@@ -43,6 +44,25 @@ class RgbLed:
   set-brightness value/int -> none:
     brightness = value
     update_
+
+  run-color-test -> none:
+    log.info "Starting color diagnostic test loop (switches every 2 seconds)..."
+    while true:
+      log.info "Setting RED"
+      set-color 255 0 0
+      sleep --ms=2000
+
+      log.info "Setting GREEN"
+      set-color 0 255 0
+      sleep --ms=2000
+
+      log.info "Setting BLUE"
+      set-color 0 0 255
+      sleep --ms=2000
+
+      log.info "Setting ORANGE"
+      set-color 255 128 0
+      sleep --ms=2000
 
   // ========================================================================
   // Private Core Logic

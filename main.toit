@@ -20,8 +20,8 @@ BUTTON-PIN    ::= 1
 RED-RGB-PIN   ::= 6
 GREEN-RGB-PIN ::= 5
 BLUE-RGB-PIN  ::= 4
-SDA-PIN ::= 21 // I2C bus pins for IMU
-SCL-PIN ::= 20 // I2C bus pins for IMU
+SDA-PIN ::= 21
+SCL-PIN ::= 20
 
 HEARTBEAT-INTERVAL ::= Duration --ms=10
 IMU-HEARTBEAT-INTERVAL ::= Duration --ms=100
@@ -72,11 +72,11 @@ run-airmouse-app:
   log.info "SUCCESS: ButtonService started on Pin $BUTTON-PIN"
 
   log.info "Initializing IMU on SDA=$SDA-PIN, SCL=$SCL-PIN..."
-  imu-instance := Imu --sda=SDA-PIN --scl=SCL-PIN
-  imu-instance.start
+  imu := Imu --sda=SDA-PIN --scl=SCL-PIN
+  imu.start
 
   log.info "Starting IMU heartbeat..."
-  imu-heartbeat := ImuHeartbeat --imu=imu-instance --interval=IMU-HEARTBEAT-INTERVAL
+  imu-heartbeat := ImuHeartbeat --imu=imu --interval=IMU-HEARTBEAT-INTERVAL
   imu-heartbeat.start
   log.info "IMU heartbeat started"
 
@@ -119,23 +119,3 @@ display-imu-data:
         log.info "Gyroscope Data - X: $gyro_x, Y: $gyro_y, Z: $gyro_z"
         sleep --ms=2000
   
-
-run-color-test:
-  log.info "Starting color diagnostic test loop (switches every 2 seconds)..."
-  rgb-led := RgbLed --red=RED-RGB-PIN --green=GREEN-RGB-PIN --blue=BLUE-RGB-PIN --brightness=100
-  while true:
-    log.info "Setting RED"
-    rgb-led.set-color 255 0 0
-    sleep --ms=2000
-
-    log.info "Setting GREEN"
-    rgb-led.set-color 0 255 0
-    sleep --ms=2000
-
-    log.info "Setting BLUE"
-    rgb-led.set-color 0 0 255
-    sleep --ms=2000
-
-    log.info "Setting ORANGE"
-    rgb-led.set-color 255 128 0
-    sleep --ms=2000
