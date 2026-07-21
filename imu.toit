@@ -21,9 +21,17 @@ OUTPUT-X-LOW-ACCELEROMETER ::= 0x28
 ADDRESS-LOW ::= 0x6A
 ADDRESS-HIGH ::= 0x6B
 
+// Conversion factors for ±500 dps Gyro and ±4g Accel
+GYRO-SCALE-RAD-PER-SEC ::= 0.000305432619 // 0.0175 dps/LSB * (PI / 180)
+ACCEL-SCALE-G          ::= 0.000122       // 0.122 mg/LSB
+
 gyro_x := 0
 gyro_y := 0
 gyro_z := 0
+
+accel_x := 0
+accel_y := 0
+accel_z := 0
 
 class Imu:
   sda-pin_ /int
@@ -109,21 +117,32 @@ class Imu:
   finish-imu-startup_ -> none:
     sleep --ms=10
 
-  read-gyro -> none:
+  /// Reads both Gyroscope and Accelerometer data in a single burst I2C transaction (12 bytes).
+  read-sensors -> none:
     if not device_:
-      log.warn "Attempted to read gyro data before IMU was initialized"
+      log.warn "Attempted to read sensor data before IMU was initialized"
       sleep --ms=100
       return
-    status := device_.read-reg STATUS-REGISTER 1
-    if (status[0] & 0x02) == 0:
-      return
 
-    raw-data := device_.read-reg OUTPUT-X-LOW-GYROSCOPE 6
+    // Read 12 contiguous bytes: Gyro X,Y,Z (6 bytes) + Accel X,Y,Z (6 bytes)
+    raw-data := device_.read-reg OUTPUT-X-LOW-GYROSCOPE 12
+
     gyro_x = to-signed-16_ (raw-data[0] | (raw-data[1] << 8))
     gyro_y = to-signed-16_ (raw-data[2] | (raw-data[3] << 8))
     gyro_z = to-signed-16_ (raw-data[4] | (raw-data[5] << 8))
 
-    // log.info "Gyro x=$(gyro_x) y=$(gyro_y) z=$(gyro_z)"
+    accel_x = to-signed-16_ (raw-data[6] | (raw-data[7] << 8))
+    accel_y = to-signed-16_ (raw-data[8] | (raw-data[9] << 8))
+    accel_z = to-signed-16_ (raw-data[10] | (raw-data[11] << 8))
+
+  // Helper getters for physical units
+  gyro-x-rad -> float: return gyro_x * GYRO-SCALE-RAD-PER-SEC
+  gyro-y-rad -> float: return gyro_y * GYRO-SCALE-RAD-PER-SEC
+  gyro-z-rad -> float: return gyro_z * GYRO-SCALE-RAD-PER-SEC
+
+  accel-x-g -> float: return accel_x * ACCEL-SCALE-G
+  accel-y-g -> float: return accel_y * ACCEL-SCALE-G
+  accel-z-g -> float: return accel_z * ACCEL-SCALE-G
 
   to-signed-16_ value/int -> int:
     if value >= 32768:

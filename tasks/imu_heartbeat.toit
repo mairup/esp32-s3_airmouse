@@ -14,7 +14,7 @@ class ImuHeartbeat:
     error := catch:
       run-thread = task::
         while true:
-          imu.read-gyro
+          imu.read-sensors
           sleep interval
     if error:
       log.error "Failed to start IMU Heartbeat: $error"

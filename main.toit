@@ -101,7 +101,7 @@ display-imu-data:
     imu-instance.start
     
     while true:
-        imu-instance.read-gyro
+        imu-instance.read-sensors
         log.info "Gyroscope Data - X: $gyro_x, Y: $gyro_y, Z: $gyro_z"
         sleep --ms=2000
   

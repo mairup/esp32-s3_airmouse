@@ -3,6 +3,8 @@ import gpio.pwm
 import log
 import math
 
+GAMMA-TABLE ::= List 256: | i | math.pow (i / 255.0) 2.2
+
 class RgbLed:
   // ========================================================================
   // Instance Fields
@@ -70,9 +72,11 @@ class RgbLed:
   // Private Core Logic
   // ========================================================================
   update_ -> none:
-    r-factor := (red * brightness) / (255.0 * 100.0)
-    g-factor := (green * brightness) / (255.0 * 100.0)
-    b-factor := (blue * brightness) / (255.0 * 100.0)
+    brightness-factor := brightness / 100.0
+
+    r-factor := GAMMA-TABLE[red] * brightness-factor
+    g-factor := GAMMA-TABLE[green] * brightness-factor
+    b-factor := GAMMA-TABLE[blue] * brightness-factor
 
     red-channel.set-duty-factor r-factor
     green-channel.set-duty-factor g-factor
