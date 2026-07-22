@@ -97,12 +97,45 @@ _hz_count = 0
 _hz_last_time = 0.0
 
 
+class OneEuroFilter:
+    def __init__(self, min_cutoff=1.0, beta=0.005, d_cutoff=1.0):
+        self.min_cutoff = min_cutoff
+        self.beta = beta
+        self.d_cutoff = d_cutoff
+        self.x_prev = None
+        self.dx_prev = 0.0
+
+    def filter(self, val, dt):
+        if dt <= 0.0:
+            return val
+        if self.x_prev is None:
+            self.x_prev = val
+            self.dx_prev = 0.0
+            return val
+
+        dx_raw = (val - self.x_prev) / dt
+        alpha_d = 1.0 / (1.0 + (1.0 / (2.0 * math.pi * self.d_cutoff)) / dt)
+        dx_filtered = alpha_d * dx_raw + (1.0 - alpha_d) * self.dx_prev
+        self.dx_prev = dx_filtered
+
+        cutoff = self.min_cutoff + self.beta * abs(dx_filtered)
+        alpha = 1.0 / (1.0 + (1.0 / (2.0 * math.pi * cutoff)) / dt)
+        x_filtered = alpha * val + (1.0 - alpha) * self.x_prev
+        self.x_prev = x_filtered
+        return x_filtered
+
+filter_pitch = OneEuroFilter(min_cutoff=1.0, beta=0.005)
+filter_yaw   = OneEuroFilter(min_cutoff=1.0, beta=0.005)
+filter_roll  = OneEuroFilter(min_cutoff=1.0, beta=0.005)
+
+
 def network_thread(ip):
     global button_state, running, conn_start_time, connection_status
     global last_heartbeat_seq, dropped_packets, heartbeats_received, btn_presses
     global heartbeat_hz, _hz_count, _hz_last_time
     global gyro_vals, accel_vals, pointer_pos
-    global roll_angle_rad, roll_angle_deg, screen_pitch_rate, screen_yaw_rate
+    global roll_angle_rad, roll_angle_deg, pitch_angle_rad, yaw_angle_rad, pitch_angle_deg, yaw_angle_deg
+    global active_stage_name
 
     while running:
         try:
@@ -140,8 +173,8 @@ def network_thread(ip):
                         inner_running = False
                         break
 
-                    if len(data) == 17:
-                        magic, seq, buttons = struct.unpack('<2sHB', data[:5])
+                    if len(data) == 15:
+                        seq, buttons, gx_raw, gy_raw, gz_raw, ax_raw, ay_raw, az_raw = struct.unpack('<HBhhhhhh', data)
                         heartbeats_received += 1
 
                         # Extract button bitmask (Bit 0: Clutch)
@@ -150,83 +183,45 @@ def network_thread(ip):
                             btn_presses += 1
                         button_state = "DOWN" if new_is_down else "UP"
 
-                        if magic == b'AM':
-                            active_stage_name = "RAW (AM)"
-                            gx_raw, gy_raw, gz_raw, ax_raw, ay_raw, az_raw = struct.unpack('<hhhhhh', data[5:])
-                            gx = gx_raw * 0.000305432619
-                            gy = gy_raw * 0.000305432619
-                            gz = gz_raw * 0.000305432619
-                            ax = ax_raw * 0.000122
-                            ay = ay_raw * 0.000122
-                            az = az_raw * 0.000122
+                        active_stage_name = "RAW IMU"
+                        gx = gx_raw * 0.000305432619
+                        gy = gy_raw * 0.000305432619
+                        gz = gz_raw * 0.000305432619
+                        ax = ax_raw * 0.000122
+                        ay = ay_raw * 0.000122
+                        az = az_raw * 0.000122
 
-                            gyro_vals[0], gyro_vals[1], gyro_vals[2] = gx, gy, gz
-                            accel_vals[0], accel_vals[1], accel_vals[2] = ax, ay, az
+                        gyro_vals[0], gyro_vals[1], gyro_vals[2] = gx, gy, gz
+                        accel_vals[0], accel_vals[1], accel_vals[2] = ax, ay, az
 
-                            roll_rad = math.atan2(ax, az)
-                            roll_deg = math.degrees(roll_rad)
-                            roll_angle_rad, roll_angle_deg = roll_rad, roll_deg
+                        roll_rad = math.atan2(ax, az)
+                        roll_deg = math.degrees(roll_rad)
+                        roll_angle_rad, roll_angle_deg = roll_rad, roll_deg
 
-                            if roll_comp_enabled:
-                                gx_screen =  gx * math.cos(roll_rad) - gz * math.sin(roll_rad)
-                                gz_screen =  gx * math.sin(roll_rad) + gz * math.cos(roll_rad)
-                            else:
-                                gx_screen = gx
-                                gz_screen = gz
+                        if roll_comp_enabled:
+                            gx_screen =  gx * math.cos(roll_rad) - gz * math.sin(roll_rad)
+                            gz_screen =  gx * math.sin(roll_rad) + gz * math.cos(roll_rad)
+                        else:
+                            gx_screen = gx
+                            gz_screen = gz
 
-                            screen_pitch_rate = gx_screen
-                            screen_yaw_rate   = gz_screen
+                        screen_pitch_rate = gx_screen
+                        screen_yaw_rate   = gz_screen
 
-                            gyro_hist_x.append(gx)
-                            gyro_hist_y.append(gy)
-                            gyro_hist_z.append(gz)
-                            accel_hist_x.append(ax)
-                            accel_hist_y.append(ay)
-                            accel_hist_z.append(az)
-                            roll_hist.append(roll_deg)
+                        gyro_hist_x.append(gx)
+                        gyro_hist_y.append(gy)
+                        gyro_hist_z.append(gz)
+                        accel_hist_x.append(ax)
+                        accel_hist_y.append(ay)
+                        accel_hist_z.append(az)
+                        roll_hist.append(roll_deg)
 
-                            allow_movement = (clutch_mode == 0 and button_state == "DOWN") or \
-                                             (clutch_mode == 1 and button_state != "DOWN") or \
-                                             (clutch_mode == 2)
-                            if allow_movement:
-                                pointer_pos[0] -= gz_screen * 12.0
-                                pointer_pos[1] -= gx_screen * 12.0
-
-                        elif magic == b'SF':
-                            active_stage_name = "FUSION (SF)"
-                            p_rad, y_rad, r_rad = struct.unpack('<fff', data[5:])
-                            pitch_angle_rad, yaw_angle_rad, roll_angle_rad = p_rad, y_rad, r_rad
-                            pitch_angle_deg = math.degrees(p_rad)
-                            yaw_angle_deg   = math.degrees(y_rad)
-                            roll_angle_deg  = math.degrees(r_rad)
-
-                            # Pointer delta movement from orientation change
-                            if len(pitch_hist) > 0 and len(yaw_hist) > 0:
-                                d_pitch = pitch_angle_deg - pitch_hist[-1]
-                                d_yaw   = yaw_angle_deg - yaw_hist[-1]
-                            else:
-                                d_pitch, d_yaw = 0.0, 0.0
-
-                            pitch_hist.append(pitch_angle_deg)
-                            yaw_hist.append(yaw_angle_deg)
-                            roll_hist.append(roll_angle_deg)
-
-                            allow_movement = (clutch_mode == 0 and button_state == "DOWN") or \
-                                             (clutch_mode == 1 and button_state != "DOWN") or \
-                                             (clutch_mode == 2)
-                            if allow_movement:
-                                pointer_pos[0] += d_yaw * 15.0
-                                pointer_pos[1] -= d_pitch * 15.0
-
-                        elif magic == b'KN':
-                            active_stage_name = "KINEMATICS (KN)"
-                            dx, dy, _ = struct.unpack('<ff4s', data[5:])
-                            allow_movement = (clutch_mode == 0 and button_state == "DOWN") or \
-                                             (clutch_mode == 1 and button_state != "DOWN") or \
-                                             (clutch_mode == 2)
-                            if allow_movement:
-                                pointer_pos[0] += dx
-                                pointer_pos[1] += dy
+                        allow_movement = (clutch_mode == 0 and button_state == "DOWN") or \
+                                         (clutch_mode == 1 and button_state != "DOWN") or \
+                                         (clutch_mode == 2)
+                        if allow_movement:
+                            pointer_pos[0] -= gz_screen * 12.0
+                            pointer_pos[1] -= gx_screen * 12.0
 
                         # Clamp within 2D canvas box boundaries
                         pointer_pos[0] = max(15.0, min(500.0, pointer_pos[0]))

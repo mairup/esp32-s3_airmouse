@@ -15,8 +15,6 @@ import .utils.env show DEBUG
 // ========================================================================
 DEVICE-NAME ::= "ESP32-S3"
 
-// IMU Pipeline Configuration
-IMU-ACTIVE-STAGE ::= "fusion" // "raw" | "fusion" | "kinematics"
 
 // GPIO Pins
 BUTTON-PIN    ::= 1
@@ -75,5 +73,4 @@ run-airmouse-app:
     --imu=imu 
     --cpu-monitor=cpu-monitor
     --send-to=:: |val/ByteArray| wireless-connection.send-bytes val
-    --stage=IMU-ACTIVE-STAGE
   imu-pipeline.start

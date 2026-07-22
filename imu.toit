@@ -2,7 +2,7 @@ import gpio
 import i2c
 import log
 import io
-import .utils.imu_data show gyro_x gyro_y gyro_z accel_x accel_y accel_z
+import .utils.imu_data as imu-data
 
 WHO-AM-I-REGISTER ::= 0x0F
 WHO-AM-I-VALUE ::= 0x6C
@@ -148,14 +148,14 @@ class Imu:
       raw-data := device_.read-reg OUTPUT-X-LOW-GYROSCOPE 12
       
       // Process Gyroscope data
-      gyro_x = io.LITTLE-ENDIAN.int16 raw-data 0
-      gyro_y = io.LITTLE-ENDIAN.int16 raw-data 2
-      gyro_z = io.LITTLE-ENDIAN.int16 raw-data 4
+      imu-data.gyro_x = io.LITTLE-ENDIAN.int16 raw-data 0
+      imu-data.gyro_y = io.LITTLE-ENDIAN.int16 raw-data 2
+      imu-data.gyro_z = io.LITTLE-ENDIAN.int16 raw-data 4
 
       // Process Accelerometer data
-      accel_x = io.LITTLE-ENDIAN.int16 raw-data 6
-      accel_y = io.LITTLE-ENDIAN.int16 raw-data 8
-      accel_z = io.LITTLE-ENDIAN.int16 raw-data 10
+      imu-data.accel_x = io.LITTLE-ENDIAN.int16 raw-data 6
+      imu-data.accel_y = io.LITTLE-ENDIAN.int16 raw-data 8
+      imu-data.accel_z = io.LITTLE-ENDIAN.int16 raw-data 10
     if error:
       log.warn "IMU read failed: $error"
 
@@ -165,14 +165,22 @@ class Imu:
       return (device_.read-reg STATUS-REGISTER 1)[0]
     return -1
 
-  // Helper getters for physical units
-  gyro-x-rad -> float: return gyro_x * GYRO-SCALE-RAD-PER-SEC
-  gyro-y-rad -> float: return gyro_y * GYRO-SCALE-RAD-PER-SEC
-  gyro-z-rad -> float: return gyro_z * GYRO-SCALE-RAD-PER-SEC
+  // Raw integer getters
+  gyro-x -> int: return imu-data.gyro_x
+  gyro-y -> int: return imu-data.gyro_y
+  gyro-z -> int: return imu-data.gyro_z
+  accel-x -> int: return imu-data.accel_x
+  accel-y -> int: return imu-data.accel_y
+  accel-z -> int: return imu-data.accel_z
 
-  accel-x-g -> float: return accel_x * ACCEL-SCALE-G
-  accel-y-g -> float: return accel_y * ACCEL-SCALE-G
-  accel-z-g -> float: return accel_z * ACCEL-SCALE-G
+  // Helper getters for physical units
+  gyro-x-rad -> float: return imu-data.gyro_x * GYRO-SCALE-RAD-PER-SEC
+  gyro-y-rad -> float: return imu-data.gyro_y * GYRO-SCALE-RAD-PER-SEC
+  gyro-z-rad -> float: return imu-data.gyro_z * GYRO-SCALE-RAD-PER-SEC
+
+  accel-x-g -> float: return imu-data.accel_x * ACCEL-SCALE-G
+  accel-y-g -> float: return imu-data.accel_y * ACCEL-SCALE-G
+  accel-z-g -> float: return imu-data.accel_z * ACCEL-SCALE-G
 
   to-signed-16_ value/int -> int:
     if value >= 32768:
