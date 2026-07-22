@@ -3,7 +3,7 @@ import .wifi_server show WifiServer
 import .tasks.heartbeat show Heartbeat
 import .tasks.imu_reader show ImuReader
 import .tasks.button show ButtonService
-import .imu show Imu gyro_x gyro_y gyro_z
+import .imu show Imu gyro_x gyro_y gyro_z accel_x accel_y accel_z
 import .utils.logger show logger-init
 import .utils.rgb_led show RgbLed
 import .utils.rgb_indicator show RgbIndicator
@@ -65,8 +65,8 @@ run-airmouse-app:
   rgb-indicator := RgbIndicator wireless-connection rgb-led
   rgb-indicator.start
 
-  button-service := ButtonService --pin-num=BUTTON-PIN --send-to=:: |val/string|
-    wireless-connection.send val
+  button-service := ButtonService --pin-num=BUTTON-PIN --send-to=:: |val/ByteArray|
+    wireless-connection.send-bytes val
   button-service.start
 
   imu := Imu --sda=SDA-PIN --scl=SCL-PIN --int-pin=INT-PIN
@@ -76,19 +76,49 @@ run-airmouse-app:
   imu-reader.start
 
   start-main-heartbeat
-    --send-to=:: |val/string| wireless-connection.send "$val\n"
+    --send-to=:: |val/ByteArray| wireless-connection.send-bytes val
     --interval=HEARTBEAT-INTERVAL
+    --imu=imu
 
 // ========================================================================
 // Helper Services
 // ========================================================================
-start-main-heartbeat --send-to/Lambda --interval/Duration -> none:
+start-main-heartbeat --send-to/Lambda --interval/Duration --imu/Imu -> none:
   counter := 0
+
   heartbeat-service := Heartbeat
     --send-to=send-to
     --generator=::
-      uptime-ms := Time.monotonic-us / 1000
-      "HB:$(counter++):$uptime-ms"
+      packet-buffer := ByteArray 16
+      packet-buffer[0] = 0x41 // 'A'
+      packet-buffer[1] = 0x4D // 'M'
+
+      seq := counter++
+      packet-buffer[2] = seq & 0xFF
+      packet-buffer[3] = (seq >> 8) & 0xFF
+
+      gx := gyro_x
+      gy := gyro_y
+      gz := gyro_z
+      ax := accel_x
+      ay := accel_y
+      az := accel_z
+
+      packet-buffer[4] = gx & 0xFF
+      packet-buffer[5] = (gx >> 8) & 0xFF
+      packet-buffer[6] = gy & 0xFF
+      packet-buffer[7] = (gy >> 8) & 0xFF
+      packet-buffer[8] = gz & 0xFF
+      packet-buffer[9] = (gz >> 8) & 0xFF
+
+      packet-buffer[10] = ax & 0xFF
+      packet-buffer[11] = (ax >> 8) & 0xFF
+      packet-buffer[12] = ay & 0xFF
+      packet-buffer[13] = (ay >> 8) & 0xFF
+      packet-buffer[14] = az & 0xFF
+      packet-buffer[15] = (az >> 8) & 0xFF
+
+      packet-buffer
     --interval=interval
   heartbeat-service.start
 

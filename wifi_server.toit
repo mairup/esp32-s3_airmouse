@@ -76,6 +76,12 @@ class WifiServer:
       return tx-bus.try-send data.to-byte-array
     return false
 
+  /// Enqueue raw byte array to TX bus without string allocations.
+  send-bytes data/ByteArray -> bool:
+    if state == STATE-CONNECTED:
+      return tx-bus.try-send data
+    return false
+
   // ========================================================================
   // State Management
   // ========================================================================

@@ -9,6 +9,7 @@ class ImuReader:
   int-pin /gpio.Pin
   cpu-monitor /CpuMonitor
   run-thread /Task? := null
+  interval /Duration ::= Duration --ms=10
 
   constructor --.imu --int-pin-num/int --.cpu-monitor:
     log.info "Initializing ImuReader on Pin $int-pin-num..."
@@ -19,8 +20,8 @@ class ImuReader:
     if run-thread: return
     log.info "Starting IMU reader..."
     run-thread = task::
+      next-time := Time.now + interval
       while true:
-        int-pin.wait-for 1
         start-time := Time.monotonic-us
         imu.read-sensors
         elapsed-us := Time.monotonic-us - start-time
@@ -35,8 +36,13 @@ class ImuReader:
           --accel-y=imu.accel-y-g
           --accel-z=imu.accel-z-g
 
-        if int-pin.get == 1:
-          int-pin.wait-for 0
+        now := Time.now
+        if next-time > now:
+          sleep (now.to next-time)
+        else:
+          sleep --ms=0
+          next-time = now
+        next-time += interval
     log.info "SUCCESS: IMU reader started successfully"
 
   stop -> none:
