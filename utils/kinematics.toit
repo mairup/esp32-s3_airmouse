@@ -62,24 +62,15 @@ class KinematicsEngine:
   /// Calculates angular difference since the last sample, maps to screen deltas,
   /// applies One Euro filtering, enforces deadband thresholding, and scales by master sensitivity.
   update --orientation/OrientationData --delta-seconds/float -> ScreenDelta:
-    return update-raw
-      --pitch-rad=orientation.pitch-rad
-      --yaw-rad=orientation.yaw-rad
-      --delta-seconds=delta-seconds
-
-  /// Processes raw pitch and yaw angles (in radians) and returns the transformed `ScreenDelta`.
-  ///
-  /// Handles yaw angle wrap-around across the -PI to +PI boundary.
-  update-raw --pitch-rad/float --yaw-rad/float --delta-seconds/float -> ScreenDelta:
     if not has-prev-orientation_:
-      prev-pitch_ = pitch-rad
-      prev-yaw_ = yaw-rad
+      prev-pitch_ = orientation.pitch-rad
+      prev-yaw_ = orientation.yaw-rad
       has-prev-orientation_ = true
       return ScreenDelta --delta-x=0.0 --delta-y=0.0
 
     // 1. Calculate raw angular deltas
-    dyaw := yaw-rad - prev-yaw_
-    dpitch := pitch-rad - prev-pitch_
+    dyaw := orientation.yaw-rad - prev-yaw_
+    dpitch := orientation.pitch-rad - prev-pitch_
 
     // Handle yaw angle wrap-around (-PI to +PI boundary)
     if dyaw > math.PI:
@@ -87,8 +78,8 @@ class KinematicsEngine:
     else if dyaw < -math.PI:
       dyaw += 2.0 * math.PI
 
-    prev-yaw_ = yaw-rad
-    prev-pitch_ = pitch-rad
+    prev-yaw_ = orientation.yaw-rad
+    prev-pitch_ = orientation.pitch-rad
 
     // 2. Base mapping from angular delta (radians) to screen space
     raw-delta-x := dyaw * base-x-multiplier

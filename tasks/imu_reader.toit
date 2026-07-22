@@ -4,10 +4,12 @@ import ..imu show Imu
 import ..utils.mahony_filter show MahonyFilter
 import ..utils.madgwick_filter show MadgwickFilter
 import ..utils.orientation_data show OrientationData
+import ..utils.kinematics show KinematicsEngine
+import ..utils.screen_delta show ScreenDelta
 import .cpu_monitor show CpuMonitor
 
-  /// Reads IMU samples, runs the configured orientation filter, and exposes the
-  /// resulting attitude values to the rest of the airmouse pipeline.
+/// Reads IMU samples, runs attitude estimation (Mahony/Madgwick),
+/// and evaluates the Kinematics transformation chain (Base Mapper + One Euro Filter + Deadband + Sensitivity).
 class ImuReader:
   static FILTER-MAHONY ::= 0
   static FILTER-MADGWICK ::= 1
@@ -18,29 +20,41 @@ class ImuReader:
   cpu-monitor /CpuMonitor
   mahony-filter /MahonyFilter
   madgwick-filter /MadgwickFilter
+  kinematics-engine /KinematicsEngine
+
+  latest-orientation_ /OrientationData? := null
+  latest-delta_       /ScreenDelta := ScreenDelta --delta-x=0.0 --delta-y=0.0
+
   run-thread /Task? := null
   interval /Duration ::= Duration --ms=10
   sample-interval-seconds_ /float ::= 0.01
 
- /// Creates an IMU reader for the given IMU instance, interrupt pin, and CPU
-    /// monitor.
-    ///
-    /// The active orientation filter is selected through `FILTER-TYPE`.
-  constructor --.imu --int-pin-num/int --.cpu-monitor:
+  /// Creates an IMU reader for the given IMU instance, interrupt pin, CPU monitor,
+  /// and optional custom KinematicsEngine instance.
+  constructor
+      --.imu
+      --int-pin-num/int
+      --.cpu-monitor
+      --kinematics-engine/KinematicsEngine?=(KinematicsEngine):
 
     int-pin = gpio.Pin int-pin-num --input --pull-down=true
     mahony-filter = MahonyFilter
     madgwick-filter = MadgwickFilter
+    this.kinematics-engine = kinematics-engine
     log.info "SUCCESS: ImuReader initialized on Pin $int-pin-num"
 
+  /// Returns the latest calculated orientation data.
+  latest-orientation -> OrientationData?:
+    return latest-orientation_
+
+  /// Returns the latest smoothed screen delta output.
+  latest-delta -> ScreenDelta:
+    return latest-delta_
+
   /// Starts the reader loop if it is not already running.
-    ///
-    /// The loop uses either the Mahony or Madgwick filter depending on the
-    /// static `FILTER-TYPE` selector.
   start -> none:
-    
     if run-thread: return
-    log.info "Starting IMU reader..."
+    log.info "Starting IMU reader with integrated Kinematics pipeline..."
     if FILTER-TYPE == FILTER-MADGWICK:
       run-thread = task::
         run-filter-loop-madgwick_ --next-time=(Time.now + interval)
@@ -49,10 +63,8 @@ class ImuReader:
         run-filter-loop-mahony_ --next-time=(Time.now + interval)
     log.info "SUCCESS: IMU reader started successfully"
 
-    /// Runs the IMU loop with the Mahony filter and publishes roll, pitch, and
-    /// yaw from that filter.
+  /// Runs the IMU loop with Mahony filter and updates Kinematics engine.
   run-filter-loop-mahony_ --next-time/Time -> none:
-
     while true:
       start-time := Time.monotonic-us
       imu.read-sensors
@@ -72,6 +84,12 @@ class ImuReader:
         --roll-rad=mahony-filter.roll-rad
         --pitch-rad=mahony-filter.pitch-rad
         --yaw-rad=mahony-filter.yaw-rad
+      latest-orientation_ = data
+
+      // Run Kinematics transformation pipeline
+      latest-delta_ = kinematics-engine.update
+        --orientation=data
+        --delta-seconds=sample-interval-seconds_
 
       now := Time.now
       if next-time > now:
@@ -81,10 +99,8 @@ class ImuReader:
         next-time = now
       next-time += interval
 
-    /// Runs the IMU loop with the Madgwick filter and publishes roll, pitch,
-    /// and yaw from that filter.
+  /// Runs the IMU loop with Madgwick filter and updates Kinematics engine.
   run-filter-loop-madgwick_ --next-time/Time -> none:
-
     while true:
       start-time := Time.monotonic-us
       imu.read-sensors
@@ -104,6 +120,12 @@ class ImuReader:
         --roll-rad=madgwick-filter.roll-rad
         --pitch-rad=madgwick-filter.pitch-rad
         --yaw-rad=madgwick-filter.yaw-rad
+      latest-orientation_ = data
+
+      // Run Kinematics transformation pipeline
+      latest-delta_ = kinematics-engine.update
+        --orientation=data
+        --delta-seconds=sample-interval-seconds_
 
       now := Time.now
       if next-time > now:
@@ -113,8 +135,8 @@ class ImuReader:
         next-time = now
       next-time += interval
 
+  /// Stops the reader loop and closes the interrupt pin.
   stop -> none:
-    /// Stops the reader loop and closes the interrupt pin.
     if run-thread:
       run-thread.cancel
       run-thread = null
