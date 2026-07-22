@@ -111,8 +111,8 @@ def network_thread(ip):
                         inner_running = False
                         break
                         
-                    if len(data) == 17:
-                        magic, seq, buttons = struct.unpack('<2sHB', data[:5])
+                    if len(data) == 15:
+                        seq, buttons, gx_raw, gy_raw, gz_raw, ax_raw, ay_raw, az_raw = struct.unpack('<HBhhhhhh', data)
                         heartbeats_received += 1
 
                         new_is_down = bool(buttons & 0x01)
@@ -120,34 +120,26 @@ def network_thread(ip):
                             btn_presses += 1
                         button_state = "DOWN" if new_is_down else "UP"
 
-                        if magic == b'AM':
-                            gx_raw, gy_raw, gz_raw, ax_raw, ay_raw, az_raw = struct.unpack('<hhhhhh', data[5:])
-                            gx = gx_raw * 0.000305432619
-                            gy = gy_raw * 0.000305432619
-                            gz = gz_raw * 0.000305432619
-                            ax = ax_raw * 0.000122
-                            ay = ay_raw * 0.000122
-                            az = az_raw * 0.000122
+                        gx = gx_raw * 0.000305432619
+                        gy = gy_raw * 0.000305432619
+                        gz = gz_raw * 0.000305432619
+                        ax = ax_raw * 0.000122
+                        ay = ay_raw * 0.000122
+                        az = az_raw * 0.000122
 
-                            gyro_vals[0], gyro_vals[1], gyro_vals[2] = gx, gy, gz
-                            accel_vals[0], accel_vals[1], accel_vals[2] = ax, ay, az
+                        gyro_vals[0], gyro_vals[1], gyro_vals[2] = gx, gy, gz
+                        accel_vals[0], accel_vals[1], accel_vals[2] = ax, ay, az
 
-                            gyro_hist_x.append(gx)
-                            gyro_hist_y.append(gy)
-                            gyro_hist_z.append(gz)
-                            accel_hist_x.append(ax)
-                            accel_hist_y.append(ay)
-                            accel_hist_z.append(az)
+                        gyro_hist_x.append(gx)
+                        gyro_hist_y.append(gy)
+                        gyro_hist_z.append(gz)
+                        accel_hist_x.append(ax)
+                        accel_hist_y.append(ay)
+                        accel_hist_z.append(az)
 
-                            pointer_pos[0] += gz * 12.0
-                            pointer_pos[1] -= gx * 12.0
-                        elif magic == b'SF':
-                            pitch_rad, yaw_rad, roll_rad = struct.unpack('<fff', data[5:])
-                            gyro_hist_x.append(pitch_rad)
-                            gyro_hist_y.append(yaw_rad)
-                            gyro_hist_z.append(roll_rad)
-                            pointer_pos[0] += yaw_rad * 15.0
-                            pointer_pos[1] -= pitch_rad * 15.0
+                        pointer_pos[0] += gz * 12.0
+                        pointer_pos[1] -= gx * 12.0
+
 
                         pointer_pos[0] = max(15.0, min(500.0, pointer_pos[0]))
                         pointer_pos[1] = max(15.0, min(330.0, pointer_pos[1]))
