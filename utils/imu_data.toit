@@ -1,17 +1,34 @@
-class ImuData:
-  timestamp-us /int
-  gyro-x       /float
-  gyro-y       /float
-  gyro-z       /float
-  accel-x      /float
-  accel-y      /float
-  accel-z      /float
+// Module-level global state for the IMU pipeline.
+// These variables are updated by the pipeline task and read by the heartbeat task.
 
-  constructor
-      --.timestamp-us
-      --.gyro-x
-      --.gyro-y
-      --.gyro-z
-      --.accel-x
-      --.accel-y
-      --.accel-z:
+// ========================================================================
+// STAGE 1: HARVESTER (RAW)
+// ========================================================================
+gyro_x := 0
+gyro_y := 0
+gyro_z := 0
+
+accel_x := 0
+accel_y := 0
+accel_z := 0
+
+// ========================================================================
+// STAGE 2: SENSOR FUSION
+// ========================================================================
+pitch := 0.0
+yaw   := 0.0
+roll  := 0.0
+
+// ========================================================================
+// STAGE 3: KINEMATICS
+// ========================================================================
+delta_x := 0.0
+delta_y := 0.0
+
+// ========================================================================
+// BUTTONS
+// ========================================================================
+// Bit 0: Clutch
+// Bit 1: Left Click
+// Bit 2: Right Click
+button_states := 0
