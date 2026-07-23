@@ -4,9 +4,7 @@ import monitor show Channel Latch
 import log
 
 class WifiServer:
-  // ========================================================================
-  // Constants
-  // ========================================================================
+  // --- Constants ---
   static STATE-STOPPED     ::= 0
   static STATE-STARTING    ::= 1
   static STATE-ADVERTISING ::= 2
@@ -17,9 +15,7 @@ class WifiServer:
   static HEARTBEAT-TIMEOUT ::= Duration --ms=1000
   static RECOVERY-DELAY    ::= Duration --ms=500
 
-  // ========================================================================
-  // Properties
-  // ========================================================================
+  // --- Properties ---
   name /string
   tx-bus /Channel
   
@@ -34,17 +30,13 @@ class WifiServer:
   target-address /net.SocketAddress? := null
   last-heartbeat-time /Time := Time.now
 
-  // ========================================================================
-  // Constructor
-  // ========================================================================
+  // --- Constructor ---
   constructor
       --.name/string
       --tx-queue-size=100:
     tx-bus = Channel tx-queue-size
 
-  // ========================================================================
-  // Public API
-  // ========================================================================
+  // --- Public API ---
   start -> none:
     if main-task:
       log.warn "[Wi-Fi] start called while already running, ignoring"
@@ -82,9 +74,7 @@ class WifiServer:
       return tx-bus.try-send data
     return false
 
-  // ========================================================================
-  // State Management
-  // ========================================================================
+  // --- State Management ---
   static log-state-change_ state/int --context=null -> none:
     if state == STATE-ADVERTISING:
       log.info "SUCCESS: [Wi-Fi] UDP server advertising on port $PORT"
@@ -116,9 +106,7 @@ class WifiServer:
       if state == STATE-CONNECTED:
         set-state_ STATE-ADVERTISING
 
-  // ========================================================================
-  // Core Loops
-  // ========================================================================
+  // --- Core Loops ---
   run-server_ error-latch/Latch -> none:
     log.info "Opening network..."
     network = net.open
@@ -156,9 +144,7 @@ class WifiServer:
         return
       sleep HEARTBEAT-TIMEOUT - elapsed
 
-  // ========================================================================
-  // Network Utilities
-  // ========================================================================
+  // --- Network Utilities ---
   transmit_ data/ByteArray -> none:
     error := catch: 
       datagram := udp.Datagram data target-address

@@ -12,11 +12,8 @@ import .tasks.potentiometer_manager show PotentiometerManager
 import .tasks.gesture_manager show GestureManager
 import .utils.env show DEBUG
 
-// ========================================================================
-// Constants
-// ========================================================================
+// --- Constants ---
 DEVICE-NAME ::= "ESP32-S3"
-
 
 // GPIO Pins
 CLUTCH-PIN          ::= 1
@@ -35,9 +32,7 @@ SCL-PIN ::= 20
 INT-PIN ::= 7
 OVERLOAD-LED-PIN ::= 2
 
-// ========================================================================
-// Main Entry
-// ========================================================================
+// --- Main Entry ---
 main:
   if DEBUG:
     logger-init
@@ -46,9 +41,7 @@ main:
 
   run-airmouse-app
 
-// ========================================================================
-// App Setup & Loop
-// ========================================================================
+// --- App Setup & Loop ---
 run-airmouse-app:
   log.info "$DEVICE-NAME starting..."
 

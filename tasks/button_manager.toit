@@ -34,27 +34,23 @@ class ButtonManager:
     led/gpio.Pin? := led-pin ? (gpio.Pin led-pin --output) : null
     
     current-state := pin.get
-    if current-state == 0:
-      imu-data.button_states |= bit-mask
-      if led: led.set 1
-    else:
-      imu-data.button_states &= ~bit-mask
-      if led: led.set 0
+    apply-button-state_ current-state bit-mask led
 
     while true:
       target-level := current-state == 1 ? 0 : 1
       pin.wait-for target-level
       
-      // Short 15ms debounce window to let contact bounce settle
       sleep --ms=15
 
-      // Verify pin state after settling
       sampled := pin.get
       if sampled != current-state:
         current-state = sampled
-        if current-state == 0:
-          imu-data.button_states |= bit-mask
-          if led: led.set 1
-        else:
-          imu-data.button_states &= ~bit-mask
-          if led: led.set 0
+        apply-button-state_ current-state bit-mask led
+
+  apply-button-state_ state/int bit-mask/int led/gpio.Pin? -> none:
+    if state == 0:
+      imu-data.button_states |= bit-mask
+      if led: led.set 1
+    else:
+      imu-data.button_states &= ~bit-mask
+      if led: led.set 0
