@@ -5,6 +5,7 @@ import ..utils.imu_data as imu_data
 BIT-CLUTCH      ::= 1 << 0
 BIT-LEFT-CLICK  ::= 1 << 1
 BIT-RIGHT-CLICK ::= 1 << 2
+BIT-GESTURE     ::= 1 << 3
 
 class ButtonManager:
   tasks_ /List := []
@@ -13,6 +14,7 @@ class ButtonManager:
       --clutch-pin/int 
       --left-click-pin/int 
       --right-click-pin/int
+      --gesture-pin/int
       --left-click-led-pin/int? = null
       --right-click-led-pin/int? = null:
     log.info "Initializing ButtonManager..."
@@ -26,8 +28,13 @@ class ButtonManager:
     tasks_.add (
       task:: monitor-button_ right-click-pin BIT-RIGHT-CLICK --led-pin=right-click-led-pin
     )
+    tasks_.add (
+      task:: monitor-button_ gesture-pin BIT-GESTURE
+    )
     
     log.info "SUCCESS: ButtonManager initialized"
+
+
 
   monitor-button_ pin-num/int bit-mask/int --led-pin/int?=null -> none:
     pin := gpio.Pin pin-num --input --pull-up=true

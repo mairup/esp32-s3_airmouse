@@ -61,8 +61,10 @@ run-airmouse-app:
     --clutch-pin=CLUTCH-PIN
     --left-click-pin=LEFT-CLICK-PIN
     --right-click-pin=RIGHT-CLICK-PIN
+    --gesture-pin=GESTURE-PIN
     --left-click-led-pin=LEFT-CLICK-LED-PIN
     --right-click-led-pin=RIGHT-CLICK-LED-PIN
+
 
   potentiometer-manager := PotentiometerManager --pin-num=POTENTIOMETER-PIN
   potentiometer-manager.start
@@ -71,11 +73,11 @@ run-airmouse-app:
   imu.start
 
   gesture-manager := GestureManager
-    --gesture-pin=GESTURE-PIN
     --imu=imu
     --rgb-led=rgb-led
     --rgb-indicator=rgb-indicator
   gesture-manager.start
+
 
   imu-pipeline := ImuPipeline 
     --imu=imu 

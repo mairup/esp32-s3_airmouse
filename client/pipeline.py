@@ -21,6 +21,10 @@ try:
         DEFAULT_CLICK_TARGET_FACTOR,
         DEFAULT_CLICK_DECAY_INTERVAL,
         DEFAULT_CLICK_DECAY_STEP,
+        DEFAULT_SCROLL_MODE_ENABLED,
+        DEFAULT_SCROLL_SENSITIVITY,
+        DEFAULT_SCROLL_DEADZONE,
+        DEFAULT_INVERT_VERTICAL_SCROLL,
         DEFAULT_REPOSITION_SENS_FACTOR,
         DEFAULT_REPOSITION_MIN_CUTOFF,
         DEFAULT_REPOSITION_DEADZONE,
@@ -55,6 +59,10 @@ except ImportError:
         DEFAULT_CLICK_TARGET_FACTOR,
         DEFAULT_CLICK_DECAY_INTERVAL,
         DEFAULT_CLICK_DECAY_STEP,
+        DEFAULT_SCROLL_MODE_ENABLED,
+        DEFAULT_SCROLL_SENSITIVITY,
+        DEFAULT_SCROLL_DEADZONE,
+        DEFAULT_INVERT_VERTICAL_SCROLL,
         DEFAULT_REPOSITION_SENS_FACTOR,
         DEFAULT_REPOSITION_MIN_CUTOFF,
         DEFAULT_REPOSITION_DEADZONE,
@@ -84,6 +92,10 @@ class AirMousePipeline:
         click_target_factor=DEFAULT_CLICK_TARGET_FACTOR,
         click_decay_interval=DEFAULT_CLICK_DECAY_INTERVAL,
         click_decay_step=DEFAULT_CLICK_DECAY_STEP,
+        scroll_mode_enabled=DEFAULT_SCROLL_MODE_ENABLED,
+        scroll_sensitivity=DEFAULT_SCROLL_SENSITIVITY,
+        scroll_deadzone=DEFAULT_SCROLL_DEADZONE,
+        invert_vertical_scroll=DEFAULT_INVERT_VERTICAL_SCROLL,
         acceleration_factor=DEFAULT_ACCEL_FACTOR,
         acceleration_exponent=DEFAULT_ACCEL_EXPONENT,
         acceleration_threshold=DEFAULT_ACCEL_THRESHOLD,
@@ -107,6 +119,11 @@ class AirMousePipeline:
         self.click_target_factor = click_target_factor
         self.click_decay_interval = click_decay_interval
         self.click_decay_step = click_decay_step
+        self.scroll_mode_enabled = scroll_mode_enabled
+        self.scroll_sensitivity = scroll_sensitivity
+        self.scroll_deadzone = scroll_deadzone
+        self.invert_vertical_scroll = invert_vertical_scroll
+
         self.acceleration_factor = acceleration_factor
         self.acceleration_exponent = acceleration_exponent
         self.acceleration_threshold = acceleration_threshold
@@ -119,6 +136,9 @@ class AirMousePipeline:
 
         self.click_start_timestamp = None
         self.previous_click_held = False
+        self.scroll_accumulator_x = 0.0
+        self.scroll_accumulator_y = 0.0
+
 
 
 
@@ -167,7 +187,8 @@ class AirMousePipeline:
         button_bitmask, raw_gyro, raw_accel, raw_potentiometer = self._parse_packet_fields(unpacked_packet)
         self._update_potentiometer_sensitivity(raw_potentiometer)
 
-        is_clutch_active, is_left_click, is_right_click, is_slowdown_mode, is_click_held = self._resolve_button_states(button_bitmask, timestamp)
+        is_clutch_active, is_left_click, is_right_click, is_slowdown_mode, is_click_held, is_gesture_active = self._resolve_button_states(button_bitmask, timestamp)
+
 
         gyroscope_uncalibrated, accelerometer = self._scale_sensor_readings(raw_gyro, raw_accel)
         self._handle_clutch_gravity_alignment(is_clutch_active, accelerometer)
@@ -189,15 +210,23 @@ class AirMousePipeline:
         else:
             effective_sensitivity = self._apply_active_slowdown(effective_sensitivity, screen_pitch_rate, screen_yaw_rate)
 
-        if is_click_held and self.click_slowdown_enabled:
-            effective_sensitivity = self._apply_dynamic_click_slowdown(effective_sensitivity, timestamp)
+        if is_gesture_active and not is_click_held and self.scroll_mode_enabled:
+            scroll_steps_x, scroll_steps_y = self._process_scroll_and_pan(screen_pitch_rate, screen_yaw_rate)
+            movement_x = 0
+            movement_y = 0
+        else:
+            scroll_steps_x = 0
+            scroll_steps_y = 0
+            if is_click_held and self.click_slowdown_enabled:
+                effective_sensitivity = self._apply_dynamic_click_slowdown(effective_sensitivity, timestamp)
 
-        movement_x, movement_y = self._accumulate_subpixel_movement(
-            delta_x=-screen_yaw_rate * effective_sensitivity,
-            delta_y=-screen_pitch_rate * effective_sensitivity
-        )
+            movement_x, movement_y = self._accumulate_subpixel_movement(
+                delta_x=-screen_yaw_rate * effective_sensitivity,
+                delta_y=-screen_pitch_rate * effective_sensitivity
+            )
 
-        return movement_x, movement_y, is_clutch_active, is_left_click, is_right_click
+        return movement_x, movement_y, is_clutch_active, is_left_click, is_right_click, is_gesture_active, scroll_steps_x, scroll_steps_y
+
 
 
     def _parse_packet_fields(self, unpacked_packet):
@@ -227,6 +256,7 @@ class AirMousePipeline:
         raw_clutch_pressed = bool(button_bitmask & 0x01)
         is_left_click = bool(button_bitmask & 0x02)
         is_right_click = bool(button_bitmask & 0x04)
+        is_gesture_active = bool(button_bitmask & 0x08)
 
         is_clutch_active = not raw_clutch_pressed if self.invert_clutch else raw_clutch_pressed
         is_click_held = is_left_click or is_right_click
@@ -240,7 +270,8 @@ class AirMousePipeline:
         self.previous_click_held = is_click_held
         is_slowdown_mode = not is_clutch_active
 
-        return is_clutch_active, is_left_click, is_right_click, is_slowdown_mode, is_click_held
+        return is_clutch_active, is_left_click, is_right_click, is_slowdown_mode, is_click_held, is_gesture_active
+
 
 
 
@@ -314,6 +345,27 @@ class AirMousePipeline:
         raw_factor = self.click_initial_factor + gap * (progress_steps * self.click_decay_step)
         dynamic_factor = min(self.click_target_factor, raw_factor)
         return effective_sensitivity * dynamic_factor
+
+    def _process_scroll_and_pan(self, screen_pitch_rate, screen_yaw_rate):
+        pitch_rate = apply_deadzone_filter(screen_pitch_rate, self.scroll_deadzone)
+        yaw_rate = apply_deadzone_filter(screen_yaw_rate, self.scroll_deadzone)
+
+        vertical_direction = -1.0 if self.invert_vertical_scroll else 1.0
+        scroll_delta_y = pitch_rate * self.scroll_sensitivity * vertical_direction
+        scroll_delta_x = yaw_rate * self.scroll_sensitivity
+
+        self.scroll_accumulator_y += scroll_delta_y
+        self.scroll_accumulator_x += scroll_delta_x
+
+
+        scroll_steps_y = int(self.scroll_accumulator_y)
+        scroll_steps_x = int(self.scroll_accumulator_x)
+
+        self.scroll_accumulator_y -= scroll_steps_y
+        self.scroll_accumulator_x -= scroll_steps_x
+
+        return scroll_steps_x, scroll_steps_y
+
 
 
 

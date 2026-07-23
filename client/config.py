@@ -106,9 +106,9 @@ DEFAULT_ACCEL_THRESHOLD = 0.4
 # Expected: True / False (Default: True)
 DEFAULT_CLICK_SLOWDOWN_ENABLED = True
 
-# Initial sensitivity multiplier at the instjump on click.
-# Range: 0.0 to 0.5 (Default: 0.15)ant of button down (t=0ms).
-# Stronger than clutch slowdown to prevent cursor 
+# Initial sensitivity multiplier at the instant of button down (t=0ms).
+# Stronger than clutch slowdown to prevent cursor jump on click.
+# Range: 0.0 to 0.5 (Default: 0.10)
 DEFAULT_CLICK_INITIAL_FACTOR = 0.1
 
 # Maximum target sensitivity multiplier cap during sustained click drags.
@@ -116,16 +116,38 @@ DEFAULT_CLICK_INITIAL_FACTOR = 0.1
 DEFAULT_CLICK_TARGET_FACTOR = 0.95
 
 # Time interval (seconds) per decay step.
-# Range: 0.05 to 0.5 s (Default: 0.1 s = 100ms)
+# Range: 0.05 to 0.5 s (Default: 0.08 s = 80ms)
 DEFAULT_CLICK_DECAY_INTERVAL = 0.08
 
-# Fractional recovery step towards target speed per interval (1/4 = 0.25 per 100ms).
-# Range: 0.10 to 1.0 (Default: 0.25)
+# Fractional recovery step towards target speed per interval (0.2 = 20% per 80ms).
+# Range: 0.10 to 1.0 (Default: 0.2)
 DEFAULT_CLICK_DECAY_STEP = 0.2
 
 
 # ==============================================================================
-# 7. HARDWARE & CLUTCH LOGIC
+# 7. SCROLL & PAN MODE (Gesture Button Held + Wrist Motion)
+# ==============================================================================
+# Enable scroll & pan mode when holding gesture button without clicking.
+# Expected: True / False (Default: True)
+DEFAULT_SCROLL_MODE_ENABLED = True
+
+# Scroll sensitivity multiplier converting gyro rates to wheel scroll steps.
+# Range: 0.1 to 5.0 (Default: 1.0)
+DEFAULT_SCROLL_SENSITIVITY = 1.0
+
+# Scroll deadzone threshold (rad/s) to prevent unwanted scrolling during tiny hand tremors.
+# Range: 0.005 to 0.05 rad/s (Default: 0.02)
+DEFAULT_SCROLL_DEADZONE = 0.02
+
+# Invert vertical scroll direction.
+# True = Inverted vertical scrolling (wrist up scrolls down); False = Normal vertical scrolling.
+# Expected: True / False (Default: True)
+DEFAULT_INVERT_VERTICAL_SCROLL = True
+
+
+
+# ==============================================================================
+# 8. HARDWARE & CLUTCH LOGIC
 # ==============================================================================
 # Invert clutch logic.
 # True = mouse active by default (holding clutch pauses); False = paused by default.
@@ -133,9 +155,8 @@ DEFAULT_CLICK_DECAY_STEP = 0.2
 DEFAULT_INVERT_CLUTCH = True
 
 
-
 # ==============================================================================
-# 7. ORIENTATION STABILITY & MADGWICK FILTER
+# 9. ORIENTATION STABILITY & MADGWICK FILTER
 # ==============================================================================
 # Maximum g-force deviation from 1.0g allowed for accelerometer gravity alignment.
 # Rejects linear acceleration during fast movements to prevent tilt drift.
@@ -145,3 +166,4 @@ DEFAULT_ACCEL_REJECTION_THRESHOLD = 0.1
 # Maximum roll angle clamp (degrees) for 3D coordinate transformation to screen.
 # Range: 45.0 to 85.0 deg (Default: 75.0)
 DEFAULT_MAX_ROLL_DEGREES = 75.0
+

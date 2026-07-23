@@ -1,52 +1,50 @@
-import gpio
 import log
 import ..imu show Imu
 import ..utils.rgb_led show RgbLed
 import ..utils.rgb_indicator show RgbIndicator
 import ..utils.imu_data as imu_data
+import .button_manager show BIT-GESTURE
 
 MAX-STATIONARY-MOTION-LSB ::= 300
 CALIBRATION-SAMPLES        ::= 50
 
 class GestureManager:
-  gesture-pin-num /int
   imu /Imu
   rgb-led /RgbLed
   rgb-indicator /RgbIndicator
   run-thread /Task? := null
 
-  constructor --gesture-pin/int --.imu --.rgb-led --.rgb-indicator:
-    gesture-pin-num = gesture-pin
+  constructor --.imu --.rgb-led --.rgb-indicator:
 
   start -> none:
     if run-thread: return
-    log.info "Starting GestureManager on GPIO $gesture-pin-num..."
+    log.info "Starting GestureManager..."
     
-    pin := gpio.Pin gesture-pin-num --input --pull-up=true
-
     run-thread = task::
       while true:
-        pin.wait-for 0
-        
-        sleep --ms=25
-        if pin.get == 0:
-          handle-gesture-press_ pin
+        if is-gesture-button-pressed_:
+          sleep --ms=25
+          if is-gesture-button-pressed_:
+            handle-gesture-press_
           
         sleep --ms=50
 
     log.info "SUCCESS: GestureManager started"
 
+  is-gesture-button-pressed_ -> bool:
+    return (imu_data.button_states & BIT-GESTURE) != 0
+
   calculate-total-gyro-motion-lsb_ -> int:
     return imu_data.gyro_x.abs + imu_data.gyro_y.abs + imu_data.gyro_z.abs
 
-  handle-gesture-press_ pin/gpio.Pin -> none:
+  handle-gesture-press_ -> none:
     log.info "Gesture button pressed. Hold stationary for 1s to trigger recalibration..."
     rgb-led.set-color 180 0 255
 
     hold-valid := true
 
     for i := 0; i < 10; i++:
-      if pin.get != 0:
+      if not is-gesture-button-pressed_:
         log.warn "Gesture aborted: button released before 1 second hold ($((i + 1) * 100)ms)"
         hold-valid = false
         break
@@ -59,7 +57,7 @@ class GestureManager:
       
       sleep --ms=100
 
-    if hold-valid and pin.get == 0:
+    if hold-valid and is-gesture-button-pressed_:
       log.info "VALID GESTURE: Starting hardware gyro zero-bias recalibration..."
       success := recalibrate-gyroscope_
       if success:
@@ -68,8 +66,8 @@ class GestureManager:
         log.warn "Recalibration aborted due to motion during calibration window"
 
     rgb-indicator.force-update
-    pin.wait-for 1
-    sleep --ms=100
+    while is-gesture-button-pressed_:
+      sleep --ms=50
 
   recalibrate-gyroscope_ -> bool:
     sum-x := 0
@@ -99,4 +97,5 @@ class GestureManager:
       sleep --ms=62
       rgb-led.set-color 0 0 0
       sleep --ms=63
+
 

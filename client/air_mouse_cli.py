@@ -21,6 +21,10 @@ try:
         DEFAULT_CLICK_TARGET_FACTOR,
         DEFAULT_CLICK_DECAY_INTERVAL,
         DEFAULT_CLICK_DECAY_STEP,
+        DEFAULT_SCROLL_MODE_ENABLED,
+        DEFAULT_SCROLL_SENSITIVITY,
+        DEFAULT_SCROLL_DEADZONE,
+        DEFAULT_INVERT_VERTICAL_SCROLL,
         DEFAULT_REPOSITION_SENS_FACTOR,
         DEFAULT_REPOSITION_MIN_CUTOFF,
         DEFAULT_REPOSITION_DEADZONE,
@@ -48,6 +52,10 @@ except ImportError:
         DEFAULT_CLICK_TARGET_FACTOR,
         DEFAULT_CLICK_DECAY_INTERVAL,
         DEFAULT_CLICK_DECAY_STEP,
+        DEFAULT_SCROLL_MODE_ENABLED,
+        DEFAULT_SCROLL_SENSITIVITY,
+        DEFAULT_SCROLL_DEADZONE,
+        DEFAULT_INVERT_VERTICAL_SCROLL,
         DEFAULT_REPOSITION_SENS_FACTOR,
         DEFAULT_REPOSITION_MIN_CUTOFF,
         DEFAULT_REPOSITION_DEADZONE,
@@ -65,7 +73,7 @@ except ImportError:
 def create_virtual_mouse_device():
     return UInput(
         {
-            e.EV_REL: [e.REL_X, e.REL_Y],
+            e.EV_REL: [e.REL_X, e.REL_Y, e.REL_WHEEL, e.REL_HWHEEL],
             e.EV_KEY: [e.BTN_LEFT, e.BTN_RIGHT, e.BTN_MIDDLE]
         },
         name="AirMouse-Virtual-Mouse"
@@ -76,6 +84,15 @@ def emit_relative_mouse_movement(virtual_mouse_device, movement_x, movement_y):
     if movement_x != 0 or movement_y != 0:
         virtual_mouse_device.write(e.EV_REL, e.REL_X, movement_x)
         virtual_mouse_device.write(e.EV_REL, e.REL_Y, movement_y)
+        virtual_mouse_device.syn()
+
+
+def emit_scroll_movement(virtual_mouse_device, scroll_x, scroll_y):
+    if scroll_y != 0:
+        virtual_mouse_device.write(e.EV_REL, e.REL_WHEEL, scroll_y)
+    if scroll_x != 0:
+        virtual_mouse_device.write(e.EV_REL, e.REL_HWHEEL, scroll_x)
+    if scroll_y != 0 or scroll_x != 0:
         virtual_mouse_device.syn()
 
 
@@ -110,6 +127,14 @@ def parse_command_line_arguments():
     parser.add_argument("--click-slowdown-interval", type=float, default=DEFAULT_CLICK_DECAY_INTERVAL, help=f"Click slowdown decay step interval in seconds (default: {DEFAULT_CLICK_DECAY_INTERVAL})")
     parser.add_argument("--click-slowdown-step", type=float, default=DEFAULT_CLICK_DECAY_STEP, help=f"Click slowdown recovery step fraction per interval (default: {DEFAULT_CLICK_DECAY_STEP})")
     parser.add_argument("--no-click-slowdown", dest="click_slowdown_enabled", action="store_false", default=DEFAULT_CLICK_SLOWDOWN_ENABLED, help="Disable dynamic click slowdown during click holds")
+
+    # Scroll & Pan settings
+    parser.add_argument("--scroll-sens", type=float, default=DEFAULT_SCROLL_SENSITIVITY, help=f"Scroll sensitivity multiplier (default: {DEFAULT_SCROLL_SENSITIVITY})")
+    parser.add_argument("--scroll-deadzone", type=float, default=DEFAULT_SCROLL_DEADZONE, help=f"Scroll deadzone threshold in rad/s (default: {DEFAULT_SCROLL_DEADZONE})")
+    parser.add_argument("--no-scroll-mode", dest="scroll_mode_enabled", action="store_false", default=DEFAULT_SCROLL_MODE_ENABLED, help="Disable scroll/pan mode when gesture button is held")
+    parser.add_argument("--normal-vertical-scroll", dest="invert_vertical_scroll", action="store_false", default=DEFAULT_INVERT_VERTICAL_SCROLL, help="Use non-inverted vertical scroll direction")
+
+
 
     # Acceleration settings
     parser.add_argument("--accel-factor", type=float, default=DEFAULT_ACCEL_FACTOR, help=f"Acceleration Factor (default: {DEFAULT_ACCEL_FACTOR})")
@@ -170,17 +195,45 @@ def calculate_packet_delta_time(current_time, last_packet_timestamp):
     return delta_time
 
 
-def update_mouse_button_states(virtual_mouse_device, is_left_click, is_right_click, previous_left_click, previous_right_click):
+def update_mouse_button_states(virtual_mouse_device, is_left_click, is_right_click, is_gesture_active, previous_left_click, previous_right_click):
     if is_left_click != previous_left_click:
-        virtual_mouse_device.write(e.EV_KEY, e.BTN_LEFT, 1 if is_left_click else 0)
-        virtual_mouse_device.syn()
+        if is_left_click and is_gesture_active:
+            virtual_mouse_device.write(e.EV_KEY, e.BTN_LEFT, 1)
+            virtual_mouse_device.syn()
+            time.sleep(0.02)
+            virtual_mouse_device.write(e.EV_KEY, e.BTN_LEFT, 0)
+            virtual_mouse_device.syn()
+            time.sleep(0.02)
+            virtual_mouse_device.write(e.EV_KEY, e.BTN_LEFT, 1)
+            virtual_mouse_device.syn()
+            time.sleep(0.02)
+            virtual_mouse_device.write(e.EV_KEY, e.BTN_LEFT, 0)
+            virtual_mouse_device.syn()
+        else:
+            virtual_mouse_device.write(e.EV_KEY, e.BTN_LEFT, 1 if is_left_click else 0)
+            virtual_mouse_device.syn()
+
     if is_right_click != previous_right_click:
-        virtual_mouse_device.write(e.EV_KEY, e.BTN_RIGHT, 1 if is_right_click else 0)
-        virtual_mouse_device.syn()
+        if is_right_click and is_gesture_active:
+            virtual_mouse_device.write(e.EV_KEY, e.BTN_RIGHT, 1)
+            virtual_mouse_device.syn()
+            time.sleep(0.02)
+            virtual_mouse_device.write(e.EV_KEY, e.BTN_RIGHT, 0)
+            virtual_mouse_device.syn()
+            time.sleep(0.02)
+            virtual_mouse_device.write(e.EV_KEY, e.BTN_RIGHT, 1)
+            virtual_mouse_device.syn()
+            time.sleep(0.02)
+            virtual_mouse_device.write(e.EV_KEY, e.BTN_RIGHT, 0)
+            virtual_mouse_device.syn()
+        else:
+            virtual_mouse_device.write(e.EV_KEY, e.BTN_RIGHT, 1 if is_right_click else 0)
+            virtual_mouse_device.syn()
+
     return is_left_click, is_right_click
 
 
-def display_streaming_status(pipeline, packet_counter, start_time, is_active, last_left_click, last_right_click):
+def display_streaming_status(pipeline, packet_counter, start_time, is_active, last_left_click, last_right_click, is_gesture=False):
     elapsed = time.monotonic() - start_time
     packet_rate = packet_counter / elapsed if elapsed > 0 else 0.0
     pot_val = pipeline.raw_potentiometer
@@ -190,13 +243,15 @@ def display_streaming_status(pipeline, packet_counter, start_time, is_active, la
         current_mode_str = "REPOSITION"
     elif last_left_click or last_right_click:
         current_mode_str = "CLICK-DRAG"
+    elif is_gesture:
+        current_mode_str = "PAN/SCROLL"
     else:
         current_mode_str = "ACTIVE"
         
     status_text = (
         f"\r[AirMouse CLI] Streaming @ {packet_rate:.1f} Hz | Pot: {pot_val} ({pot_pct}%) | "
         f"Sens: {pipeline.sensitivity:.2f} | Mode: {current_mode_str} | "
-        f"L: {'DOWN' if last_left_click else 'UP'} | R: {'DOWN' if last_right_click else 'UP'}   "
+        f"L: {'DOWN' if last_left_click else 'UP'} | R: {'DOWN' if last_right_click else 'UP'} | G: {'DOWN' if is_gesture else 'UP'}   "
     )
     sys.stdout.write(status_text)
     sys.stdout.flush()
@@ -220,6 +275,11 @@ def run_air_mouse_cli():
         click_target_factor=arguments.click_slowdown_target,
         click_decay_interval=arguments.click_slowdown_interval,
         click_decay_step=arguments.click_slowdown_step,
+        scroll_mode_enabled=arguments.scroll_mode_enabled,
+        scroll_sensitivity=arguments.scroll_sens,
+        scroll_deadzone=arguments.scroll_deadzone,
+        invert_vertical_scroll=arguments.invert_vertical_scroll,
+
         acceleration_factor=arguments.accel_factor,
         acceleration_exponent=arguments.accel_exponent,
         acceleration_threshold=arguments.accel_threshold,
@@ -233,16 +293,7 @@ def run_air_mouse_cli():
         max_roll_degrees=arguments.max_roll_deg
     )
 
-    print(f"[AirMouse CLI] Target: {arguments.ip_address}:{arguments.port}")
-    print(f"[AirMouse CLI] Active Mode: DZ({arguments.deadzone}) > 1-EUR(fcmin={arguments.min_cutoff}, beta={arguments.beta}) > MADGWICK | SlowSpeed={arguments.active_slowdown_speed} | Exp={arguments.active_slowdown_exp}")
-    print(f"[AirMouse CLI] Dynamic Click Slowdown: {'ENABLED' if arguments.click_slowdown_enabled else 'DISABLED'} (Init: {arguments.click_slowdown_init} -> Target: {arguments.click_slowdown_target} Cap | Step: {arguments.click_slowdown_step * 100:.0f}% / {arguments.click_slowdown_interval * 1000:.0f}ms)")
-
-
-    print(f"[AirMouse CLI] Reposition Mode: Sens={arguments.reposition_sens} | DZ={arguments.reposition_deadzone} | Cutoff={arguments.reposition_min_cutoff}Hz | SlowSpeed={arguments.reposition_slowdown_speed} | Exp={arguments.reposition_slowdown_exp}")
-    print(f"[AirMouse CLI] Acceleration: Factor={arguments.accel_factor}, Exponent={arguments.accel_exponent}, Threshold={arguments.accel_threshold} rad/s")
-    print(f"[AirMouse CLI] Orientation Guard: AccelRejection={arguments.accel_rejection_thresh}g | MaxRoll={arguments.max_roll_deg}° | Auto Gravity Re-align on Clutch")
-    print(f"[AirMouse CLI] Virtual mouse device initialized via evdev uinput")
-    print("[AirMouse CLI] Press Ctrl+C to stop.\n")
+    print(f"[AirMouse CLI] Target: {arguments.ip_address}:{arguments.port} | Virtual Mouse Active (Press Ctrl+C to exit)\n")
 
 
     running = True
@@ -262,6 +313,7 @@ def run_air_mouse_cli():
     last_left_click = False
     last_right_click = False
     is_active = False
+    is_gesture = False
 
     try:
         while running:
@@ -280,17 +332,22 @@ def run_air_mouse_cli():
                 delta_time = calculate_packet_delta_time(current_time, last_packet_timestamp)
                 last_packet_timestamp = current_time
 
-                movement_x, movement_y, is_active, is_left, is_right = pipeline.process_frame(unpacked_packet, current_time, delta_time)
+                movement_x, movement_y, is_active, is_left, is_right, is_gesture, scroll_x, scroll_y = pipeline.process_frame(unpacked_packet, current_time, delta_time)
 
                 last_left_click, last_right_click = update_mouse_button_states(
-                    virtual_mouse_device, is_left, is_right, last_left_click, last_right_click
+                    virtual_mouse_device, is_left, is_right, is_gesture, last_left_click, last_right_click
                 )
-                emit_relative_mouse_movement(virtual_mouse_device, movement_x, movement_y)
+                if scroll_x != 0 or scroll_y != 0:
+                    emit_scroll_movement(virtual_mouse_device, scroll_x, scroll_y)
+                else:
+                    emit_relative_mouse_movement(virtual_mouse_device, movement_x, movement_y)
                 packet_counter += 1
 
             if current_time - status_print_time >= 2.0:
-                display_streaming_status(pipeline, packet_counter, start_time, is_active, last_left_click, last_right_click)
+                display_streaming_status(pipeline, packet_counter, start_time, is_active, last_left_click, last_right_click, is_gesture)
                 status_print_time = current_time
+
+
 
     finally:
         sys.stdout.write("\n[AirMouse CLI] Shutting down...\n")
