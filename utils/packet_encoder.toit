@@ -1,18 +1,15 @@
 import io
 
 
-// Pre-allocate circular buffers of ByteArrays to avoid garbage collection pauses
 RAW-PACKET-BUFFERS_ ::= [
-  ByteArray 15,
-  ByteArray 15,
-  ByteArray 15,
-  ByteArray 15,
+  ByteArray 17,
+  ByteArray 17,
+  ByteArray 17,
+  ByteArray 17,
 ]
 raw-buffer-idx_ := 0
 
-// Encode Raw Stage Packet (15 bytes)
-// [Seq:2][Buttons:1][Gx:2][Gy:2][Gz:2][Ax:2][Ay:2][Az:2]
-encode-raw-packet --seq/int --buttons/int --gx/int --gy/int --gz/int --ax/int --ay/int --az/int -> ByteArray:
+encode-raw-packet --seq/int --buttons/int --gx/int --gy/int --gz/int --ax/int --ay/int --az/int --pot/int -> ByteArray:
   b := RAW-PACKET-BUFFERS_[raw-buffer-idx_]
   raw-buffer-idx_ = (raw-buffer-idx_ + 1) % RAW-PACKET-BUFFERS_.size
 
@@ -25,6 +22,7 @@ encode-raw-packet --seq/int --buttons/int --gx/int --gy/int --gz/int --ax/int --
   io.LITTLE-ENDIAN.put-int16 b 9 ax
   io.LITTLE-ENDIAN.put-int16 b 11 ay
   io.LITTLE-ENDIAN.put-int16 b 13 az
+  io.LITTLE-ENDIAN.put-uint16 b 15 pot
   return b
 
 

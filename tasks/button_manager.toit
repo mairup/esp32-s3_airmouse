@@ -2,7 +2,6 @@ import gpio
 import log
 import ..utils.imu_data as imu_data
 
-// Bit masks
 BIT-CLUTCH      ::= 1 << 0
 BIT-LEFT-CLICK  ::= 1 << 1
 BIT-RIGHT-CLICK ::= 1 << 2
@@ -10,29 +9,51 @@ BIT-RIGHT-CLICK ::= 1 << 2
 class ButtonManager:
   tasks_ /List := []
 
-  constructor --clutch-pin/int:
-    log.info "Initializing ButtonManager (Clutch Pin: $clutch-pin)..."
+  constructor 
+      --clutch-pin/int 
+      --left-click-pin/int 
+      --right-click-pin/int
+      --left-click-led-pin/int? = null
+      --right-click-led-pin/int? = null:
+    log.info "Initializing ButtonManager..."
     
-    // We can add more buttons here later
     tasks_.add (
       task:: monitor-button_ clutch-pin BIT-CLUTCH
+    )
+    tasks_.add (
+      task:: monitor-button_ left-click-pin BIT-LEFT-CLICK --led-pin=left-click-led-pin
+    )
+    tasks_.add (
+      task:: monitor-button_ right-click-pin BIT-RIGHT-CLICK --led-pin=right-click-led-pin
     )
     
     log.info "SUCCESS: ButtonManager initialized"
 
-  monitor-button_ pin-num/int bit-mask/int -> none:
+  monitor-button_ pin-num/int bit-mask/int --led-pin/int?=null -> none:
     pin := gpio.Pin pin-num --input --pull-up=true
+    led/gpio.Pin? := led-pin ? (gpio.Pin led-pin --output) : null
     
-    last-state := 1
+    current-state := pin.get
+    if current-state == 0:
+      imu-data.button_states |= bit-mask
+      if led: led.set 1
+    else:
+      imu-data.button_states &= ~bit-mask
+      if led: led.set 0
+
     while true:
-      if last-state == 1:
-        pin.wait-for 0
-        last-state = 0
-        imu-data.button_states |= bit-mask // Set bit
-      else:
-        pin.wait-for 1
-        last-state = 1
-        imu-data.button_states &= ~bit-mask // Clear bit
+      target-level := current-state == 1 ? 0 : 1
+      pin.wait-for target-level
       
-      // Debounce period
-      sleep --ms=30
+      sleep --ms=25
+      
+      sampled-state := pin.get
+      sleep --ms=10
+      if sampled-state == pin.get and sampled-state != current-state:
+        current-state = sampled-state
+        if current-state == 0:
+          imu-data.button_states |= bit-mask
+          if led: led.set 1
+        else:
+          imu-data.button_states &= ~bit-mask
+          if led: led.set 0

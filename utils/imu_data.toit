@@ -12,3 +12,8 @@ accel_z := 0
 // Bit 1: Left Click
 // Bit 2: Right Click
 button_states := 0
+potentiometer_val := 0
+
+gyro_offset_x := 0
+gyro_offset_y := 0
+gyro_offset_z := 0

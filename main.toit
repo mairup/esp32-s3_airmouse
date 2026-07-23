@@ -8,6 +8,8 @@ import .utils.rgb_led show RgbLed
 import .utils.rgb_indicator show RgbIndicator
 import .utils.overload_led show OverloadLed
 import .tasks.cpu_monitor show CpuMonitor
+import .tasks.potentiometer_manager show PotentiometerManager
+import .tasks.gesture_manager show GestureManager
 import .utils.env show DEBUG
 
 // ========================================================================
@@ -17,7 +19,14 @@ DEVICE-NAME ::= "ESP32-S3"
 
 
 // GPIO Pins
-BUTTON-PIN    ::= 1
+CLUTCH-PIN          ::= 1
+LEFT-CLICK-PIN      ::= 16
+RIGHT-CLICK-PIN     ::= 14
+LEFT-CLICK-LED-PIN  ::= 8
+RIGHT-CLICK-LED-PIN ::= 11
+POTENTIOMETER-PIN   ::= 9
+GESTURE-PIN         ::= 38
+
 RED-RGB-PIN   ::= 6
 GREEN-RGB-PIN ::= 5
 BLUE-RGB-PIN  ::= 4
@@ -37,14 +46,7 @@ main:
     log.debug "Debug mode active (Wi-Fi UDP logger initialized)"
     log.info "---------  MAIN ENTRY  ----------"
 
-  exception := catch:
-    run-airmouse-app
-
-  if exception:
-    log.error "FATAL EXCEPTION in main" --tags={"error": exception}
-    if DEBUG:
-      sleep --ms=500 // Allow UDP network buffer to flush to PC
-    throw exception
+  run-airmouse-app
 
 // ========================================================================
 // App Setup & Loop
@@ -64,10 +66,25 @@ run-airmouse-app:
   rgb-indicator := RgbIndicator wireless-connection rgb-led
   rgb-indicator.start
 
-  button-manager := ButtonManager --clutch-pin=BUTTON-PIN
+  button-manager := ButtonManager 
+    --clutch-pin=CLUTCH-PIN
+    --left-click-pin=LEFT-CLICK-PIN
+    --right-click-pin=RIGHT-CLICK-PIN
+    --left-click-led-pin=LEFT-CLICK-LED-PIN
+    --right-click-led-pin=RIGHT-CLICK-LED-PIN
+
+  potentiometer-manager := PotentiometerManager --pin-num=POTENTIOMETER-PIN
+  potentiometer-manager.start
 
   imu := Imu --sda=SDA-PIN --scl=SCL-PIN --int-pin=INT-PIN
   imu.start
+
+  gesture-manager := GestureManager
+    --gesture-pin=GESTURE-PIN
+    --imu=imu
+    --rgb-led=rgb-led
+    --rgb-indicator=rgb-indicator
+  gesture-manager.start
 
   imu-pipeline := ImuPipeline 
     --imu=imu 

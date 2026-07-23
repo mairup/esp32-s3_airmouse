@@ -32,12 +32,13 @@ class ImuPipeline:
         packet := packet_encoder.encode-raw-packet
           --seq=(counter++)
           --buttons=imu-data.button_states
-          --gx=imu-data.gyro_x
-          --gy=imu-data.gyro_y
-          --gz=imu-data.gyro_z
+          --gx=(imu-data.gyro_x - imu-data.gyro_offset_x)
+          --gy=(imu-data.gyro_y - imu-data.gyro_offset_y)
+          --gz=(imu-data.gyro_z - imu-data.gyro_offset_z)
           --ax=imu-data.accel_x
           --ay=imu-data.accel_y
           --az=imu-data.accel_z
+          --pot=imu-data.potentiometer_val
             
         send-to.call packet
 

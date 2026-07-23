@@ -5,6 +5,10 @@ class RgbIndicator:
   led /RgbLed
   server /any
 
+  last-r_ := -1
+  last-g_ := -1
+  last-b_ := -1
+
   run-thread /Task? := null
 
   constructor .server .led:
@@ -26,35 +30,34 @@ class RgbIndicator:
       run-thread = null
       catch: led.set-color 0 0 0
 
-  run_ -> none:
-    last-r := -1
-    last-g := -1
-    last-b := -1
+  force-update -> none:
+    last-r_ = -1
+    last-g_ = -1
+    last-b_ = -1
 
+  run_ -> none:
     while true:
       state := server.state
       
-      // Determine target colors
       r := 0
       g := 0
       b := 0
       
-      if state == 0: // STATE-STOPPED
+      if state == 0:
         r = 0; g = 0; b = 0
-      else if state == 1: // STATE-STARTING
-        r = 255; g = 128; b = 0 // Orange
-      else if state == 2: // STATE-ADVERTISING / LISTENING
-        r = 0; g = 0; b = 255 // Solid Blue
-      else if state == 3: // STATE-CONNECTED
-        r = 0; g = 255; b = 0 // Green
-      else if state == 4: // STATE-ERROR
-        r = 255; g = 0; b = 0 // Red
+      else if state == 1:
+        r = 255; g = 128; b = 0
+      else if state == 2:
+        r = 0; g = 0; b = 255
+      else if state == 3:
+        r = 0; g = 255; b = 0
+      else if state == 4:
+        r = 255; g = 0; b = 0
 
-      // Only write to physical PWM registers if color index actually changes
-      if r != last-r or g != last-g or b != last-b:
+      if r != last-r_ or g != last-g_ or b != last-b_:
         led.set-color r g b
-        last-r = r
-        last-g = g
-        last-b = b
+        last-r_ = r
+        last-g_ = g
+        last-b_ = b
 
       sleep --ms=10
