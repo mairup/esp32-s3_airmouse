@@ -52,6 +52,7 @@ class WifiServer:
 
     log.info "Initializing and starting Wi-Fi Server..."
     set-state_ STATE-STARTING
+    log.info "SUCCESS: Wi-Fi Server startup initiated successfully"
     main-task = task::
       while true:
         error-latch := Latch
@@ -63,7 +64,6 @@ class WifiServer:
         release-resources_
         sleep RECOVERY-DELAY
         set-state_ STATE-STARTING
-    log.info "SUCCESS: Wi-Fi Server startup initiated successfully"
 
   stop -> none:
     main-task = cancel-task_ main-task

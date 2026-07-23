@@ -20,6 +20,7 @@ class ImuPipeline:
     
     int-pin := gpio.Pin imu.int-pin-num --input --pull-down=true
 
+    log.info "SUCCESS: IMU pipeline started successfully"
     run-thread = task::
       counter := 0
       while true:
@@ -44,8 +45,6 @@ class ImuPipeline:
 
         elapsed-us := Time.monotonic-us - start-time
         cpu-monitor.update-latency elapsed-us
-
-    log.info "SUCCESS: IMU pipeline started successfully"
 
   stop -> none:
     if run-thread:
