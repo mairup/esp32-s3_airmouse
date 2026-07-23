@@ -15,6 +15,12 @@ GYRO_SCALE_RAD_PER_SEC = 0.000305432619
 # Fixed sensor property.
 ACCEL_SCALE_G = 0.000122
 
+# Maximum raw potentiometer value received from the ESP32.
+# ESP32 computes: int(adc.get() * 4095) where adc.get() returns voltage in volts (0-3.3V).
+# Theoretical max = 3.3 * 4095 ≈ 13500. Override via --pot-max if hardware differs.
+DEFAULT_POT_MAX = 13500
+
+
 
 # ==============================================================================
 # 2. BASE SENSITIVITY & DEADZONE
