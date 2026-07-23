@@ -46,6 +46,7 @@ try:
         DEFAULT_INVERT_CLUTCH,
         DEFAULT_ACCEL_REJECTION_THRESHOLD,
         DEFAULT_MAX_ROLL_DEGREES,
+        DEFAULT_POT_MAX,
     )
 except ImportError:
     from filters import (
@@ -93,6 +94,7 @@ except ImportError:
         DEFAULT_INVERT_CLUTCH,
         DEFAULT_ACCEL_REJECTION_THRESHOLD,
         DEFAULT_MAX_ROLL_DEGREES,
+        DEFAULT_POT_MAX,
     )
 
 
@@ -133,7 +135,8 @@ class AirMousePipeline:
         reposition_slowdown_speed=DEFAULT_REPOSITION_SLOWDOWN_SPEED,
         reposition_slowdown_exp=DEFAULT_REPOSITION_SLOWDOWN_EXP,
         accel_rejection_threshold=DEFAULT_ACCEL_REJECTION_THRESHOLD,
-        max_roll_degrees=DEFAULT_MAX_ROLL_DEGREES
+        max_roll_degrees=DEFAULT_MAX_ROLL_DEGREES,
+        pot_max=DEFAULT_POT_MAX
     ):
         self.base_sensitivity = sensitivity
         self.sensitivity = sensitivity
@@ -213,6 +216,7 @@ class AirMousePipeline:
         self.subpixel_accumulator_y = 0.0
         self.raw_potentiometer = 0
         self.potentiometer_ratio = 0.5
+        self.pot_max = pot_max
 
 
     def calculate_effective_sensitivity(self, screen_pitch_rate, screen_yaw_rate):
@@ -314,9 +318,8 @@ class AirMousePipeline:
         return button_bitmask, (gx, gy, gz), (ax, ay, az), pot
 
     def _update_potentiometer_sensitivity(self, raw_potentiometer):
-        raw_potentiometer = min(raw_potentiometer, 4095)
         self.raw_potentiometer = raw_potentiometer
-        self.potentiometer_ratio = raw_potentiometer / 4095.0
+        self.potentiometer_ratio = min(1.0, max(0.0, raw_potentiometer / float(self.pot_max)))
 
         centered_knob_position = 2.0 * self.potentiometer_ratio - 1.0
         cubic_curve = centered_knob_position * centered_knob_position * centered_knob_position

@@ -45,6 +45,7 @@ try:
         DEFAULT_INVERT_CLUTCH,
         DEFAULT_ACCEL_REJECTION_THRESHOLD,
         DEFAULT_MAX_ROLL_DEGREES,
+        DEFAULT_POT_MAX,
     )
 except ImportError:
     from pipeline import AirMousePipeline
@@ -84,6 +85,7 @@ except ImportError:
         DEFAULT_INVERT_CLUTCH,
         DEFAULT_ACCEL_REJECTION_THRESHOLD,
         DEFAULT_MAX_ROLL_DEGREES,
+        DEFAULT_POT_MAX,
     )
 
 
@@ -205,6 +207,7 @@ def parse_command_line_arguments():
     
     # Hardware clutch logic
     parser.add_argument("--normal-clutch", dest="invert_clutch", action="store_false", default=DEFAULT_INVERT_CLUTCH, help="Normal clutch logic (hold button to activate mouse)")
+    parser.add_argument("--pot-max", type=int, default=DEFAULT_POT_MAX, help=f"Raw potentiometer maximum value from hardware (default: {DEFAULT_POT_MAX})")
     return parser.parse_args()
 
 
@@ -359,7 +362,8 @@ def run_air_mouse_cli():
         reposition_slowdown_speed=arguments.reposition_slowdown_speed,
         reposition_slowdown_exp=arguments.reposition_slowdown_exp,
         accel_rejection_threshold=arguments.accel_rejection_thresh,
-        max_roll_degrees=arguments.max_roll_deg
+        max_roll_degrees=arguments.max_roll_deg,
+        pot_max=arguments.pot_max
     )
 
     print(f"[AirMouse CLI] Target: {arguments.ip_address}:{arguments.port} | Virtual Mouse Active (Press Ctrl+C to exit)\n")

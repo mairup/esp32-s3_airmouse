@@ -148,11 +148,11 @@ DEFAULT_INVERT_VERTICAL_SCROLL = True
 
 # Pan mode activation hold duration in seconds (must hold clutch relatively still for this duration).
 # Range: 0.1 to 2.0 s (Default: 0.5 s = 500ms)
-DEFAULT_PAN_ACTIVATION_DELAY = 0.5
+DEFAULT_PAN_ACTIVATION_DELAY = 0.07
 
 # Max motion speed (rad/s) allowed during the hold delay to be considered "relatively still".
 # Range: 0.02 to 0.5 rad/s (Default: 0.15)
-DEFAULT_PAN_STILLNESS_THRESHOLD = 0.15
+DEFAULT_PAN_STILLNESS_THRESHOLD = 0.1
 
 
 
