@@ -15,7 +15,6 @@ ENV/
 .DS_Store
 
 # Other
-client/
 deprecated/
 utils/config.toit
 

@@ -6,6 +6,11 @@ import ..utils.rgb_led show RgbLed
 import ..utils.rgb_indicator show RgbIndicator
 import ..utils.imu_data as imu_data
 
+// Maximum allowed sum of absolute gyro raw values (|X| + |Y| + |Z|) for stationary state
+// 300 raw LSB units ≈ 0.09 rad/s (5.2 deg/s) total motion limit
+MAX-STATIONARY-MOTION-LSB ::= 300
+CALIBRATION-SAMPLES        ::= 50
+
 class GestureManager:
   gesture-pin-num /int
   imu /Imu
@@ -47,8 +52,8 @@ class GestureManager:
         break
       
       gyro-magnitude := imu_data.gyro_x.abs + imu_data.gyro_y.abs + imu_data.gyro_z.abs
-      if gyro-magnitude > 2500:
-        log.warn "Gesture aborted: excessive motion detected during hold (magnitude: $gyro-magnitude)"
+      if gyro-magnitude > MAX-STATIONARY-MOTION-LSB:
+        log.warn "Gesture aborted: motion detected during hold (magnitude: $gyro-magnitude > $MAX-STATIONARY-MOTION-LSB)"
         hold-valid = false
         break
       
@@ -56,30 +61,37 @@ class GestureManager:
 
     if hold-valid and pin.get == 0:
       log.info "VALID GESTURE: Starting hardware gyro zero-bias recalibration..."
-      recalibrate-gyroscope_
-      blink-8hz-green-confirmation-led_
+      success := recalibrate-gyroscope_
+      if success:
+        blink-8hz-green-confirmation-led_
+      else:
+        log.warn "Recalibration aborted due to motion during calibration window"
 
     rgb-indicator.force-update
     pin.wait-for 1
     sleep --ms=100
 
-  recalibrate-gyroscope_ -> none:
+  recalibrate-gyroscope_ -> bool:
     sum-x := 0
     sum-y := 0
     sum-z := 0
-    samples := 20
     
-    for i := 0; i < samples; i++:
+    for i := 0; i < CALIBRATION-SAMPLES; i++:
+      gyro-magnitude := imu_data.gyro_x.abs + imu_data.gyro_y.abs + imu_data.gyro_z.abs
+      if gyro-magnitude > MAX-STATIONARY-MOTION-LSB:
+        return false
+
       sum-x += imu_data.gyro_x
       sum-y += imu_data.gyro_y
       sum-z += imu_data.gyro_z
       sleep --ms=10
 
-    imu_data.gyro_offset_x = sum-x / samples
-    imu_data.gyro_offset_y = sum-y / samples
-    imu_data.gyro_offset_z = sum-z / samples
+    imu_data.gyro_offset_x = sum-x / CALIBRATION-SAMPLES
+    imu_data.gyro_offset_y = sum-y / CALIBRATION-SAMPLES
+    imu_data.gyro_offset_z = sum-z / CALIBRATION-SAMPLES
 
     log.info "SUCCESS: Hardware recalibration completed! Gyro Offsets -> X: $imu_data.gyro_offset_x, Y: $imu_data.gyro_offset_y, Z: $imu_data.gyro_offset_z"
+    return true
 
   blink-8hz-green-confirmation-led_ -> none:
     // 8 Hz frequency = 125ms cycle (62ms ON, 63ms OFF) for 5 blinks

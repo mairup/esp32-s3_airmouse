@@ -45,12 +45,13 @@ class ButtonManager:
       target-level := current-state == 1 ? 0 : 1
       pin.wait-for target-level
       
-      sleep --ms=25
-      
-      sampled-state := pin.get
-      sleep --ms=10
-      if sampled-state == pin.get and sampled-state != current-state:
-        current-state = sampled-state
+      // Short 15ms debounce window to let contact bounce settle
+      sleep --ms=15
+
+      // Verify pin state after settling
+      sampled := pin.get
+      if sampled != current-state:
+        current-state = sampled
         if current-state == 0:
           imu-data.button_states |= bit-mask
           if led: led.set 1
