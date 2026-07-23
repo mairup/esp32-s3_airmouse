@@ -5,8 +5,6 @@ import ..utils.rgb_led show RgbLed
 import ..utils.rgb_indicator show RgbIndicator
 import ..utils.imu_data as imu_data
 
-// Maximum allowed sum of absolute gyro raw values (|X| + |Y| + |Z|) for stationary state
-// 300 raw LSB units ≈ 0.09 rad/s (5.2 deg/s) total motion limit
 MAX-STATIONARY-MOTION-LSB ::= 300
 CALIBRATION-SAMPLES        ::= 50
 
@@ -38,6 +36,9 @@ class GestureManager:
 
     log.info "SUCCESS: GestureManager started"
 
+  calculate-total-gyro-motion-lsb_ -> int:
+    return imu_data.gyro_x.abs + imu_data.gyro_y.abs + imu_data.gyro_z.abs
+
   handle-gesture-press_ pin/gpio.Pin -> none:
     log.info "Gesture button pressed. Hold stationary for 1s to trigger recalibration..."
     rgb-led.set-color 180 0 255
@@ -50,7 +51,7 @@ class GestureManager:
         hold-valid = false
         break
       
-      gyro-magnitude := imu_data.gyro_x.abs + imu_data.gyro_y.abs + imu_data.gyro_z.abs
+      gyro-magnitude := calculate-total-gyro-motion-lsb_
       if gyro-magnitude > MAX-STATIONARY-MOTION-LSB:
         log.warn "Gesture aborted: motion detected during hold (magnitude: $gyro-magnitude > $MAX-STATIONARY-MOTION-LSB)"
         hold-valid = false
@@ -76,7 +77,7 @@ class GestureManager:
     sum-z := 0
     
     for i := 0; i < CALIBRATION-SAMPLES; i++:
-      gyro-magnitude := imu_data.gyro_x.abs + imu_data.gyro_y.abs + imu_data.gyro_z.abs
+      gyro-magnitude := calculate-total-gyro-motion-lsb_
       if gyro-magnitude > MAX-STATIONARY-MOTION-LSB:
         return false
 
@@ -93,9 +94,9 @@ class GestureManager:
     return true
 
   blink-8hz-green-confirmation-led_ -> none:
-    // 8 Hz frequency = 125ms cycle (62ms ON, 63ms OFF) for 5 blinks
     for i := 0; i < 5; i++:
       rgb-led.set-color 0 255 0
       sleep --ms=62
       rgb-led.set-color 0 0 0
       sleep --ms=63
+

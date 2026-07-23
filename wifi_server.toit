@@ -161,8 +161,7 @@ class WifiServer:
     target-address = null
 
   clear-tx-queue_ -> none:
-    while tx-bus.receive --blocking=false:
-      null
+    while tx-bus.receive --blocking=false: null
 
   cancel-task_ task/Task? -> Task?:
     if task: task.cancel
@@ -172,6 +171,7 @@ class WifiServer:
     if socket: catch: socket.close
     return null
 
-  close-network_ netw/net.Interface? -> net.Interface?:
-    if netw: catch: netw.close
+  close-network_ network-interface/net.Interface? -> net.Interface?:
+    if network-interface: catch: network-interface.close
     return null
+

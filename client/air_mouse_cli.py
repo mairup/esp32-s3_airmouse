@@ -14,6 +14,13 @@ try:
         DEFAULT_MIN_CUTOFF_FREQUENCY,
         DEFAULT_SPEED_COEFFICIENT,
         DEFAULT_DERIVATIVE_CUTOFF,
+        DEFAULT_ACTIVE_SLOWDOWN_SPEED,
+        DEFAULT_ACTIVE_SLOWDOWN_EXP,
+        DEFAULT_CLICK_SLOWDOWN_ENABLED,
+        DEFAULT_CLICK_INITIAL_FACTOR,
+        DEFAULT_CLICK_TARGET_FACTOR,
+        DEFAULT_CLICK_DECAY_INTERVAL,
+        DEFAULT_CLICK_DECAY_STEP,
         DEFAULT_REPOSITION_SENS_FACTOR,
         DEFAULT_REPOSITION_MIN_CUTOFF,
         DEFAULT_REPOSITION_DEADZONE,
@@ -23,7 +30,6 @@ try:
         DEFAULT_ACCEL_EXPONENT,
         DEFAULT_ACCEL_THRESHOLD,
         DEFAULT_INVERT_CLUTCH,
-        DEFAULT_SLOW_ON_CLICK,
         DEFAULT_ACCEL_REJECTION_THRESHOLD,
         DEFAULT_MAX_ROLL_DEGREES,
     )
@@ -35,6 +41,13 @@ except ImportError:
         DEFAULT_MIN_CUTOFF_FREQUENCY,
         DEFAULT_SPEED_COEFFICIENT,
         DEFAULT_DERIVATIVE_CUTOFF,
+        DEFAULT_ACTIVE_SLOWDOWN_SPEED,
+        DEFAULT_ACTIVE_SLOWDOWN_EXP,
+        DEFAULT_CLICK_SLOWDOWN_ENABLED,
+        DEFAULT_CLICK_INITIAL_FACTOR,
+        DEFAULT_CLICK_TARGET_FACTOR,
+        DEFAULT_CLICK_DECAY_INTERVAL,
+        DEFAULT_CLICK_DECAY_STEP,
         DEFAULT_REPOSITION_SENS_FACTOR,
         DEFAULT_REPOSITION_MIN_CUTOFF,
         DEFAULT_REPOSITION_DEADZONE,
@@ -44,7 +57,6 @@ except ImportError:
         DEFAULT_ACCEL_EXPONENT,
         DEFAULT_ACCEL_THRESHOLD,
         DEFAULT_INVERT_CLUTCH,
-        DEFAULT_SLOW_ON_CLICK,
         DEFAULT_ACCEL_REJECTION_THRESHOLD,
         DEFAULT_MAX_ROLL_DEGREES,
     )
@@ -89,7 +101,16 @@ def parse_command_line_arguments():
     parser.add_argument("--min-cutoff", type=float, default=DEFAULT_MIN_CUTOFF_FREQUENCY, help=f"1-Euro Minimum Cutoff Frequency Hz (default: {DEFAULT_MIN_CUTOFF_FREQUENCY})")
     parser.add_argument("--beta", type=float, default=DEFAULT_SPEED_COEFFICIENT, help=f"1-Euro Speed Slope Beta (default: {DEFAULT_SPEED_COEFFICIENT})")
     parser.add_argument("--d-cutoff", type=float, default=DEFAULT_DERIVATIVE_CUTOFF, help=f"1-Euro Derivative Cutoff Hz (default: {DEFAULT_DERIVATIVE_CUTOFF})")
-    
+    parser.add_argument("--active-slowdown-speed", type=float, default=DEFAULT_ACTIVE_SLOWDOWN_SPEED, help=f"Active mode low-speed slowdown threshold rad/s (default: {DEFAULT_ACTIVE_SLOWDOWN_SPEED})")
+    parser.add_argument("--active-slowdown-exp", type=float, default=DEFAULT_ACTIVE_SLOWDOWN_EXP, help=f"Active mode low-speed slowdown exponent (default: {DEFAULT_ACTIVE_SLOWDOWN_EXP})")
+
+    # Dynamic click slowdown settings
+    parser.add_argument("--click-slowdown-init", type=float, default=DEFAULT_CLICK_INITIAL_FACTOR, help=f"Initial click sensitivity multiplier at t=0ms (default: {DEFAULT_CLICK_INITIAL_FACTOR})")
+    parser.add_argument("--click-slowdown-target", type=float, default=DEFAULT_CLICK_TARGET_FACTOR, help=f"Target click sensitivity multiplier cap (default: {DEFAULT_CLICK_TARGET_FACTOR})")
+    parser.add_argument("--click-slowdown-interval", type=float, default=DEFAULT_CLICK_DECAY_INTERVAL, help=f"Click slowdown decay step interval in seconds (default: {DEFAULT_CLICK_DECAY_INTERVAL})")
+    parser.add_argument("--click-slowdown-step", type=float, default=DEFAULT_CLICK_DECAY_STEP, help=f"Click slowdown recovery step fraction per interval (default: {DEFAULT_CLICK_DECAY_STEP})")
+    parser.add_argument("--no-click-slowdown", dest="click_slowdown_enabled", action="store_false", default=DEFAULT_CLICK_SLOWDOWN_ENABLED, help="Disable dynamic click slowdown during click holds")
+
     # Acceleration settings
     parser.add_argument("--accel-factor", type=float, default=DEFAULT_ACCEL_FACTOR, help=f"Acceleration Factor (default: {DEFAULT_ACCEL_FACTOR})")
     parser.add_argument("--accel-exponent", type=float, default=DEFAULT_ACCEL_EXPONENT, help=f"Acceleration Exponent Curve (default: {DEFAULT_ACCEL_EXPONENT})")
@@ -106,10 +127,79 @@ def parse_command_line_arguments():
     parser.add_argument("--accel-rejection-thresh", type=float, default=DEFAULT_ACCEL_REJECTION_THRESHOLD, help=f"Max g-force deviation before ignoring accel gravity correction (default: {DEFAULT_ACCEL_REJECTION_THRESHOLD})")
     parser.add_argument("--max-roll-deg", type=float, default=DEFAULT_MAX_ROLL_DEGREES, help=f"Max roll angle clamp in degrees (default: {DEFAULT_MAX_ROLL_DEGREES})")
     
-    # Hardware clutch & click logic
+    # Hardware clutch logic
     parser.add_argument("--normal-clutch", dest="invert_clutch", action="store_false", default=DEFAULT_INVERT_CLUTCH, help="Normal clutch logic (hold button to activate mouse)")
-    parser.add_argument("--no-slow-on-click", dest="slow_on_click", action="store_false", default=DEFAULT_SLOW_ON_CLICK, help="Disable reposition slowdown mode during click drags")
     return parser.parse_args()
+
+
+
+def drain_udp_socket_buffers(client_socket):
+    datagrams_to_process = []
+    try:
+        datagram_bytes, _ = client_socket.recvfrom(1024)
+        if len(datagram_bytes) in (15, 17):
+            datagrams_to_process.append(datagram_bytes)
+    except socket.timeout:
+        return datagrams_to_process
+
+    client_socket.setblocking(False)
+    while True:
+        try:
+            next_datagram, _ = client_socket.recvfrom(1024)
+            if len(next_datagram) in (15, 17):
+                datagrams_to_process.append(next_datagram)
+        except (BlockingIOError, socket.error):
+            break
+    client_socket.setblocking(True)
+    client_socket.settimeout(0.5)
+    return datagrams_to_process
+
+
+def unpack_binary_datagram(datagram):
+    if len(datagram) == 17:
+        return struct.unpack("<HBhhhhhhH", datagram)
+    return struct.unpack("<HBhhhhhh", datagram)
+
+
+def calculate_packet_delta_time(current_time, last_packet_timestamp):
+    if not last_packet_timestamp:
+        return 0.01
+    delta_time = current_time - last_packet_timestamp
+    if delta_time <= 0.0 or delta_time > 0.5:
+        return 0.01
+    return delta_time
+
+
+def update_mouse_button_states(virtual_mouse_device, is_left_click, is_right_click, previous_left_click, previous_right_click):
+    if is_left_click != previous_left_click:
+        virtual_mouse_device.write(e.EV_KEY, e.BTN_LEFT, 1 if is_left_click else 0)
+        virtual_mouse_device.syn()
+    if is_right_click != previous_right_click:
+        virtual_mouse_device.write(e.EV_KEY, e.BTN_RIGHT, 1 if is_right_click else 0)
+        virtual_mouse_device.syn()
+    return is_left_click, is_right_click
+
+
+def display_streaming_status(pipeline, packet_counter, start_time, is_active, last_left_click, last_right_click):
+    elapsed = time.monotonic() - start_time
+    packet_rate = packet_counter / elapsed if elapsed > 0 else 0.0
+    pot_val = pipeline.raw_potentiometer
+    pot_pct = int(pipeline.potentiometer_ratio * 100)
+    
+    if not is_active:
+        current_mode_str = "REPOSITION"
+    elif last_left_click or last_right_click:
+        current_mode_str = "CLICK-DRAG"
+    else:
+        current_mode_str = "ACTIVE"
+        
+    status_text = (
+        f"\r[AirMouse CLI] Streaming @ {packet_rate:.1f} Hz | Pot: {pot_val} ({pot_pct}%) | "
+        f"Sens: {pipeline.sensitivity:.2f} | Mode: {current_mode_str} | "
+        f"L: {'DOWN' if last_left_click else 'UP'} | R: {'DOWN' if last_right_click else 'UP'}   "
+    )
+    sys.stdout.write(status_text)
+    sys.stdout.flush()
 
 
 def run_air_mouse_cli():
@@ -123,11 +213,17 @@ def run_air_mouse_cli():
         minimum_cutoff_frequency=arguments.min_cutoff,
         speed_coefficient=arguments.beta,
         derivative_cutoff_frequency=arguments.d_cutoff,
+        active_slowdown_speed=arguments.active_slowdown_speed,
+        active_slowdown_exp=arguments.active_slowdown_exp,
+        click_slowdown_enabled=arguments.click_slowdown_enabled,
+        click_initial_factor=arguments.click_slowdown_init,
+        click_target_factor=arguments.click_slowdown_target,
+        click_decay_interval=arguments.click_slowdown_interval,
+        click_decay_step=arguments.click_slowdown_step,
         acceleration_factor=arguments.accel_factor,
         acceleration_exponent=arguments.accel_exponent,
         acceleration_threshold=arguments.accel_threshold,
         invert_clutch=arguments.invert_clutch,
-        slow_on_click=arguments.slow_on_click,
         reposition_sens_factor=arguments.reposition_sens,
         reposition_min_cutoff=arguments.reposition_min_cutoff,
         reposition_deadzone=arguments.reposition_deadzone,
@@ -138,13 +234,16 @@ def run_air_mouse_cli():
     )
 
     print(f"[AirMouse CLI] Target: {arguments.ip_address}:{arguments.port}")
-    print(f"[AirMouse CLI] Active Mode: DZ({arguments.deadzone}) > 1-EUR(fcmin={arguments.min_cutoff}, beta={arguments.beta}) > MADGWICK")
+    print(f"[AirMouse CLI] Active Mode: DZ({arguments.deadzone}) > 1-EUR(fcmin={arguments.min_cutoff}, beta={arguments.beta}) > MADGWICK | SlowSpeed={arguments.active_slowdown_speed} | Exp={arguments.active_slowdown_exp}")
+    print(f"[AirMouse CLI] Dynamic Click Slowdown: {'ENABLED' if arguments.click_slowdown_enabled else 'DISABLED'} (Init: {arguments.click_slowdown_init} -> Target: {arguments.click_slowdown_target} Cap | Step: {arguments.click_slowdown_step * 100:.0f}% / {arguments.click_slowdown_interval * 1000:.0f}ms)")
+
+
     print(f"[AirMouse CLI] Reposition Mode: Sens={arguments.reposition_sens} | DZ={arguments.reposition_deadzone} | Cutoff={arguments.reposition_min_cutoff}Hz | SlowSpeed={arguments.reposition_slowdown_speed} | Exp={arguments.reposition_slowdown_exp}")
     print(f"[AirMouse CLI] Acceleration: Factor={arguments.accel_factor}, Exponent={arguments.accel_exponent}, Threshold={arguments.accel_threshold} rad/s")
     print(f"[AirMouse CLI] Orientation Guard: AccelRejection={arguments.accel_rejection_thresh}g | MaxRoll={arguments.max_roll_deg}° | Auto Gravity Re-align on Clutch")
-    print(f"[AirMouse CLI] Click Slowdown: {'ENABLED' if arguments.slow_on_click else 'DISABLED'} (reposition slowdown applies when dragging)")
     print(f"[AirMouse CLI] Virtual mouse device initialized via evdev uinput")
     print("[AirMouse CLI] Press Ctrl+C to stop.\n")
+
 
     running = True
 
@@ -159,10 +258,10 @@ def run_air_mouse_cli():
     last_packet_timestamp = None
     packet_counter = 0
     start_time = time.monotonic()
-
     status_print_time = 0.0
     last_left_click = False
     last_right_click = False
+    is_active = False
 
     try:
         while running:
@@ -172,69 +271,25 @@ def run_air_mouse_cli():
                 send_heartbeat_handshake(client_socket, arguments.ip_address, arguments.port)
                 last_heartbeat_time = current_time
 
-            datagrams_to_process = []
-            try:
-                datagram_bytes, address = client_socket.recvfrom(1024)
-                if len(datagram_bytes) in (15, 17):
-                    datagrams_to_process.append(datagram_bytes)
-            except socket.timeout:
-                continue
-
-            client_socket.setblocking(False)
-            while True:
-                try:
-                    next_datagram, _ = client_socket.recvfrom(1024)
-                    if len(next_datagram) in (15, 17):
-                        datagrams_to_process.append(next_datagram)
-                except (BlockingIOError, socket.error):
-                    break
-            client_socket.setblocking(True)
-            client_socket.settimeout(0.5)
-
+            datagrams_to_process = drain_udp_socket_buffers(client_socket)
             if not datagrams_to_process:
                 continue
 
             for datagram in datagrams_to_process:
-                if len(datagram) == 17:
-                    unpacked_packet = struct.unpack("<HBhhhhhhH", datagram)
-                else:
-                    unpacked_packet = struct.unpack("<HBhhhhhh", datagram)
-
-                delta_time = (current_time - last_packet_timestamp) if last_packet_timestamp else 0.01
-                if delta_time <= 0.0 or delta_time > 0.5:
-                    delta_time = 0.01
+                unpacked_packet = unpack_binary_datagram(datagram)
+                delta_time = calculate_packet_delta_time(current_time, last_packet_timestamp)
                 last_packet_timestamp = current_time
 
-                movement_x, movement_y, is_active, is_left_click, is_right_click = pipeline.process_frame(unpacked_packet, current_time, delta_time)
+                movement_x, movement_y, is_active, is_left, is_right = pipeline.process_frame(unpacked_packet, current_time, delta_time)
 
-                if is_left_click != last_left_click:
-                    virtual_mouse_device.write(e.EV_KEY, e.BTN_LEFT, 1 if is_left_click else 0)
-                    virtual_mouse_device.syn()
-                    last_left_click = is_left_click
-
-                if is_right_click != last_right_click:
-                    virtual_mouse_device.write(e.EV_KEY, e.BTN_RIGHT, 1 if is_right_click else 0)
-                    virtual_mouse_device.syn()
-                    last_right_click = is_right_click
-
+                last_left_click, last_right_click = update_mouse_button_states(
+                    virtual_mouse_device, is_left, is_right, last_left_click, last_right_click
+                )
                 emit_relative_mouse_movement(virtual_mouse_device, movement_x, movement_y)
-
                 packet_counter += 1
 
             if current_time - status_print_time >= 2.0:
-                elapsed = current_time - start_time
-                packet_rate = packet_counter / elapsed
-                pot_val = pipeline.raw_potentiometer
-                pot_pct = int(pipeline.potentiometer_ratio * 100)
-                if not is_active:
-                    current_mode_str = "REPOSITION"
-                elif (last_left_click or last_right_click) and pipeline.slow_on_click:
-                    current_mode_str = "DRAG-SLOW"
-                else:
-                    current_mode_str = "ACTIVE"
-                status_text = f"\r[AirMouse CLI] Streaming @ {packet_rate:.1f} Hz | Pot: {pot_val} ({pot_pct}%) | Sens: {pipeline.sensitivity:.2f} | Mode: {current_mode_str} | L: {'DOWN' if last_left_click else 'UP'} | R: {'DOWN' if last_right_click else 'UP'}   "
-                sys.stdout.write(status_text)
-                sys.stdout.flush()
+                display_streaming_status(pipeline, packet_counter, start_time, is_active, last_left_click, last_right_click)
                 status_print_time = current_time
 
     finally:
@@ -257,3 +312,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

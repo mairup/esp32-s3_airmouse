@@ -48,9 +48,12 @@ class ButtonManager:
         apply-button-state_ current-state bit-mask led
 
   apply-button-state_ state/int bit-mask/int led/gpio.Pin? -> none:
-    if state == 0:
-      imu-data.button_states |= bit-mask
+    is-pressed := (state == 0)
+    if is-pressed:
+      imu_data.button_states |= bit-mask
       if led: led.set 1
     else:
-      imu-data.button_states &= ~bit-mask
+      imu_data.button_states &= ~bit-mask
       if led: led.set 0
+
+

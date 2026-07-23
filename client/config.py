@@ -21,12 +21,12 @@ ACCEL_SCALE_G = 0.000122
 # ==============================================================================
 # Base mouse sensitivity multiplier when physical potentiometer knob is at 50%.
 # Range: 1.0 to 50.0 (Default: 10.0)
-DEFAULT_BASE_SENSITIVITY = 10.0
+DEFAULT_BASE_SENSITIVITY = 25.0
 
 # Minimum angular velocity (rad/s) required to initiate pointer movement.
 # Eliminates resting hand tremors; higher values add start-motion resistance.
 # Range: 0.00 to 0.05 rad/s (Default: 0.015)
-DEFAULT_DEADZONE_THRESHOLD = 0.015
+DEFAULT_DEADZONE_THRESHOLD = 0.0005
 
 
 # ==============================================================================
@@ -35,16 +35,26 @@ DEFAULT_DEADZONE_THRESHOLD = 0.015
 # Minimum cutoff frequency (Hz) for 1-Euro filter during active tracking.
 # Lower = smoother tracking with slight latency; Higher = maximum responsiveness.
 # Range: 0.5 to 10.0 Hz (Default: 3.0)
-DEFAULT_MIN_CUTOFF_FREQUENCY = 3.0
+DEFAULT_MIN_CUTOFF_FREQUENCY = 4.0
 
 # Speed coefficient (beta) for 1-Euro filter.
 # Controls cutoff frequency scaling with motion speed to eliminate lag during fast moves.
 # Range: 0.0 to 1.0 (Default: 0.5)
-DEFAULT_SPEED_COEFFICIENT = 0.5
+DEFAULT_SPEED_COEFFICIENT = 0.1
 
 # Cutoff frequency (Hz) for velocity derivative estimation in 1-Euro filter.
 # Range: 1.0 to 10.0 Hz (Default: 6.0)
 DEFAULT_DERIVATIVE_CUTOFF = 6.0
+
+# Speed threshold (rad/s) below which active mode low-speed slowdown applies.
+# 0.0 = disabled (linear tracking at low speeds); >0.0 = smooth low-speed dampening.
+# Range: 0.0 to 0.5 rad/s (Default: 0.15)
+DEFAULT_ACTIVE_SLOWDOWN_SPEED = 0.15
+
+# Exponential dampening factor on slow precision micro-movements in active mode.
+# Range: 1.0 to 2.0 (Default: 1.15)
+DEFAULT_ACTIVE_SLOWDOWN_EXP = 1.01
+
 
 
 # ==============================================================================
@@ -53,7 +63,7 @@ DEFAULT_DERIVATIVE_CUTOFF = 6.0
 # Sensitivity multiplier applied when repositioning (clutch off).
 # 0.0 = hard clutch (zero cursor movement); >0.0 = soft clutch.
 # Range: 0.0 to 0.5 (Default: 0.2)
-DEFAULT_REPOSITION_SENS_FACTOR = 0.2
+DEFAULT_REPOSITION_SENS_FACTOR = 0.27
 
 # 1-Euro filter minimum cutoff frequency (Hz) during repositioning.
 # Range: 1.0 to 5.0 Hz (Default: 2.5)
@@ -78,11 +88,11 @@ DEFAULT_REPOSITION_SLOWDOWN_EXP = 1.35
 # Acceleration factor applied during rapid wrist flicks.
 # 0.0 = linear 1:1 mapping; >0.0 = dynamic acceleration boost.
 # Range: 0.0 to 1.0 (Default: 0.25)
-DEFAULT_ACCEL_FACTOR = 0.25
+DEFAULT_ACCEL_FACTOR = 0.15
 
 # Power exponent for fast move acceleration curve.
 # Range: 1.0 to 2.0 (Default: 1.12)
-DEFAULT_ACCEL_EXPONENT = 1.12
+DEFAULT_ACCEL_EXPONENT = 1.15
 
 # Speed threshold (rad/s) required to engage acceleration boost.
 # Range: 0.05 to 0.5 rad/s (Default: 0.4)
@@ -90,16 +100,38 @@ DEFAULT_ACCEL_THRESHOLD = 0.4
 
 
 # ==============================================================================
-# 6. HARDWARE & CLUTCH LOGIC
+# 6. DYNAMIC CLICK SLOWDOWN (Left / Right Click Drag)
+# ==============================================================================
+# Enable dynamic time-decaying slowdown during left or right click holds.
+# Expected: True / False (Default: True)
+DEFAULT_CLICK_SLOWDOWN_ENABLED = True
+
+# Initial sensitivity multiplier at the instjump on click.
+# Range: 0.0 to 0.5 (Default: 0.15)ant of button down (t=0ms).
+# Stronger than clutch slowdown to prevent cursor 
+DEFAULT_CLICK_INITIAL_FACTOR = 0.1
+
+# Maximum target sensitivity multiplier cap during sustained click drags.
+# Range: 0.80 to 1.0 (Default: 0.95)
+DEFAULT_CLICK_TARGET_FACTOR = 0.95
+
+# Time interval (seconds) per decay step.
+# Range: 0.05 to 0.5 s (Default: 0.1 s = 100ms)
+DEFAULT_CLICK_DECAY_INTERVAL = 0.08
+
+# Fractional recovery step towards target speed per interval (1/4 = 0.25 per 100ms).
+# Range: 0.10 to 1.0 (Default: 0.25)
+DEFAULT_CLICK_DECAY_STEP = 0.2
+
+
+# ==============================================================================
+# 7. HARDWARE & CLUTCH LOGIC
 # ==============================================================================
 # Invert clutch logic.
 # True = mouse active by default (holding clutch pauses); False = paused by default.
 # Expected: True / False (Default: True)
 DEFAULT_INVERT_CLUTCH = True
 
-# Apply reposition slowdown mode while holding left or right click drags.
-# Expected: True / False (Default: True)
-DEFAULT_SLOW_ON_CLICK = True
 
 
 # ==============================================================================

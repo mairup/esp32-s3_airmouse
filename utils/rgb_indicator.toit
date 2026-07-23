@@ -38,22 +38,10 @@ class RgbIndicator:
 
   run_ -> none:
     while true:
-      state := server.state
-      
-      r := 0
-      g := 0
-      b := 0
-      
-      if state == WifiServer.STATE-STOPPED:
-        r = 0; g = 0; b = 0
-      else if state == WifiServer.STATE-STARTING:
-        r = 255; g = 128; b = 0
-      else if state == WifiServer.STATE-ADVERTISING:
-        r = 0; g = 0; b = 255
-      else if state == WifiServer.STATE-CONNECTED:
-        r = 0; g = 255; b = 0
-      else if state == WifiServer.STATE-ERROR:
-        r = 255; g = 0; b = 0
+      color := get-rgb-color-for-state_ server.state
+      r := color[0]
+      g := color[1]
+      b := color[2]
 
       if r != last-r_ or g != last-g_ or b != last-b_:
         led.set-color r g b
@@ -61,5 +49,17 @@ class RgbIndicator:
         last-g_ = g
         last-b_ = b
 
-      sleep --ms=10
+      sleep --ms=50
+
+  get-rgb-color-for-state_ state/int -> List:
+    if state == WifiServer.STATE-STARTING:
+      return [255, 128, 0]
+    else if state == WifiServer.STATE-ADVERTISING:
+      return [0, 0, 255]
+    else if state == WifiServer.STATE-CONNECTED:
+      return [0, 255, 0]
+    else if state == WifiServer.STATE-ERROR:
+      return [255, 0, 0]
+    return [0, 0, 0]
+
 
