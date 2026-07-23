@@ -5,14 +5,27 @@ try:
         MadgwickFilter,
         AutoZeroBiasCalibrator,
         apply_deadzone_filter,
+    )
+    from .config import (
         GYRO_SCALE_RAD_PER_SEC,
         ACCEL_SCALE_G,
+        DEFAULT_BASE_SENSITIVITY,
+        DEFAULT_DEADZONE_THRESHOLD,
         DEFAULT_MIN_CUTOFF_FREQUENCY,
         DEFAULT_SPEED_COEFFICIENT,
         DEFAULT_DERIVATIVE_CUTOFF,
+        DEFAULT_REPOSITION_SENS_FACTOR,
+        DEFAULT_REPOSITION_MIN_CUTOFF,
+        DEFAULT_REPOSITION_DEADZONE,
+        DEFAULT_REPOSITION_SLOWDOWN_SPEED,
+        DEFAULT_REPOSITION_SLOWDOWN_EXP,
+        DEFAULT_ACCEL_FACTOR,
+        DEFAULT_ACCEL_EXPONENT,
+        DEFAULT_ACCEL_THRESHOLD,
+        DEFAULT_INVERT_CLUTCH,
+        DEFAULT_SLOW_ON_CLICK,
         DEFAULT_ACCEL_REJECTION_THRESHOLD,
         DEFAULT_MAX_ROLL_DEGREES,
-        DEFAULT_DEADZONE_THRESHOLD,
     )
 except ImportError:
     from filters import (
@@ -20,30 +33,28 @@ except ImportError:
         MadgwickFilter,
         AutoZeroBiasCalibrator,
         apply_deadzone_filter,
+    )
+    from config import (
         GYRO_SCALE_RAD_PER_SEC,
         ACCEL_SCALE_G,
+        DEFAULT_BASE_SENSITIVITY,
+        DEFAULT_DEADZONE_THRESHOLD,
         DEFAULT_MIN_CUTOFF_FREQUENCY,
         DEFAULT_SPEED_COEFFICIENT,
         DEFAULT_DERIVATIVE_CUTOFF,
+        DEFAULT_REPOSITION_SENS_FACTOR,
+        DEFAULT_REPOSITION_MIN_CUTOFF,
+        DEFAULT_REPOSITION_DEADZONE,
+        DEFAULT_REPOSITION_SLOWDOWN_SPEED,
+        DEFAULT_REPOSITION_SLOWDOWN_EXP,
+        DEFAULT_ACCEL_FACTOR,
+        DEFAULT_ACCEL_EXPONENT,
+        DEFAULT_ACCEL_THRESHOLD,
+        DEFAULT_INVERT_CLUTCH,
+        DEFAULT_SLOW_ON_CLICK,
         DEFAULT_ACCEL_REJECTION_THRESHOLD,
         DEFAULT_MAX_ROLL_DEGREES,
-        DEFAULT_DEADZONE_THRESHOLD,
     )
-
-# ------------------------------------------------------------------------------
-# DEFAULT PIPELINE CONFIGURATION & TUNING CONSTANTS
-# ------------------------------------------------------------------------------
-DEFAULT_BASE_SENSITIVITY          = 10.0
-DEFAULT_REPOSITION_SENS_FACTOR    = 0.2
-DEFAULT_REPOSITION_MIN_CUTOFF     = 2.5
-DEFAULT_REPOSITION_DEADZONE       = 0.03
-DEFAULT_REPOSITION_SLOWDOWN_SPEED = 0.3
-DEFAULT_REPOSITION_SLOWDOWN_EXP   = 1.35
-DEFAULT_ACCEL_FACTOR              = 0.25
-DEFAULT_ACCEL_EXPONENT            = 1.12
-DEFAULT_ACCEL_THRESHOLD           = 0.4
-DEFAULT_INVERT_CLUTCH             = True
-DEFAULT_SLOW_ON_CLICK             = True
 
 
 class AirMousePipeline:

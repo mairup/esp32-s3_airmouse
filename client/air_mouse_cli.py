@@ -7,9 +7,13 @@ import argparse
 from evdev import UInput, ecodes as e
 
 try:
-    from .pipeline import (
-        AirMousePipeline,
+    from .pipeline import AirMousePipeline
+    from .config import (
         DEFAULT_BASE_SENSITIVITY,
+        DEFAULT_DEADZONE_THRESHOLD,
+        DEFAULT_MIN_CUTOFF_FREQUENCY,
+        DEFAULT_SPEED_COEFFICIENT,
+        DEFAULT_DERIVATIVE_CUTOFF,
         DEFAULT_REPOSITION_SENS_FACTOR,
         DEFAULT_REPOSITION_MIN_CUTOFF,
         DEFAULT_REPOSITION_DEADZONE,
@@ -20,19 +24,17 @@ try:
         DEFAULT_ACCEL_THRESHOLD,
         DEFAULT_INVERT_CLUTCH,
         DEFAULT_SLOW_ON_CLICK,
-    )
-    from .filters import (
-        DEFAULT_MIN_CUTOFF_FREQUENCY,
-        DEFAULT_SPEED_COEFFICIENT,
-        DEFAULT_DERIVATIVE_CUTOFF,
         DEFAULT_ACCEL_REJECTION_THRESHOLD,
         DEFAULT_MAX_ROLL_DEGREES,
-        DEFAULT_DEADZONE_THRESHOLD,
     )
 except ImportError:
-    from pipeline import (
-        AirMousePipeline,
+    from pipeline import AirMousePipeline
+    from config import (
         DEFAULT_BASE_SENSITIVITY,
+        DEFAULT_DEADZONE_THRESHOLD,
+        DEFAULT_MIN_CUTOFF_FREQUENCY,
+        DEFAULT_SPEED_COEFFICIENT,
+        DEFAULT_DERIVATIVE_CUTOFF,
         DEFAULT_REPOSITION_SENS_FACTOR,
         DEFAULT_REPOSITION_MIN_CUTOFF,
         DEFAULT_REPOSITION_DEADZONE,
@@ -43,14 +45,8 @@ except ImportError:
         DEFAULT_ACCEL_THRESHOLD,
         DEFAULT_INVERT_CLUTCH,
         DEFAULT_SLOW_ON_CLICK,
-    )
-    from filters import (
-        DEFAULT_MIN_CUTOFF_FREQUENCY,
-        DEFAULT_SPEED_COEFFICIENT,
-        DEFAULT_DERIVATIVE_CUTOFF,
         DEFAULT_ACCEL_REJECTION_THRESHOLD,
         DEFAULT_MAX_ROLL_DEGREES,
-        DEFAULT_DEADZONE_THRESHOLD,
     )
 
 
