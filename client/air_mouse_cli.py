@@ -100,6 +100,12 @@ DEFAULT_ACCEL_REJECTION_THRESHOLD = 0.1
 #   Higher = wider roll range for steep wrist tilts; Lower = tight clamp (keeps screen movement strictly horizontal).
 DEFAULT_MAX_ROLL_DEGREES          = 75.0
 
+# ------------------------------------------------------------------------------
+# GROUP 7: HARDWARE SENSOR CONVERSION CONSTANTS
+# ------------------------------------------------------------------------------
+GYRO_SCALE_RAD_PER_SEC = 0.000305432619  # ±500 dps: 0.0175 dps/LSB * (PI / 180)
+ACCEL_SCALE_G          = 0.000122        # ±4g: 0.122 mg/LSB
+
 
 # ==============================================================================
 # PIPELINE FILTER CLASSES
@@ -399,13 +405,13 @@ class AirMousePipeline:
         is_click_held = (is_left_click or is_right_click) if self.slow_on_click else False
         is_slowdown_mode = (not is_clutch_active) or is_click_held
 
-        gyro_uncalibrated_x = raw_gyro_x * 0.000305432619
-        gyro_uncalibrated_y = raw_gyro_y * 0.000305432619
-        gyro_uncalibrated_z = raw_gyro_z * 0.000305432619
+        gyro_uncalibrated_x = raw_gyro_x * GYRO_SCALE_RAD_PER_SEC
+        gyro_uncalibrated_y = raw_gyro_y * GYRO_SCALE_RAD_PER_SEC
+        gyro_uncalibrated_z = raw_gyro_z * GYRO_SCALE_RAD_PER_SEC
 
-        accelerometer_x = raw_accel_x * 0.000122
-        accelerometer_y = raw_accel_y * 0.000122
-        accelerometer_z = raw_accel_z * 0.000122
+        accelerometer_x = raw_accel_x * ACCEL_SCALE_G
+        accelerometer_y = raw_accel_y * ACCEL_SCALE_G
+        accelerometer_z = raw_accel_z * ACCEL_SCALE_G
 
         # Re-align 3D orientation to gravity on clutch state transitions (pressed or released)
         if self.previous_clutch_active is not None and is_clutch_active != self.previous_clutch_active:
