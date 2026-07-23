@@ -213,7 +213,7 @@ class AirMousePipeline:
         self.subpixel_accumulator_y = 0.0
         self.raw_potentiometer = 0
         self.potentiometer_ratio = 0.5
-        self.max_observed_pot = 4095
+
 
     def calculate_effective_sensitivity(self, screen_pitch_rate, screen_yaw_rate):
         if self.acceleration_factor <= 0.0:
@@ -314,19 +314,15 @@ class AirMousePipeline:
         return button_bitmask, (gx, gy, gz), (ax, ay, az), pot
 
     def _update_potentiometer_sensitivity(self, raw_potentiometer):
+        raw_potentiometer = min(raw_potentiometer, 4095)
         self.raw_potentiometer = raw_potentiometer
-        if raw_potentiometer > self.max_observed_pot:
-            self.max_observed_pot = raw_potentiometer
-
-        if self.max_observed_pot > 0:
-            self.potentiometer_ratio = min(1.0, max(0.0, raw_potentiometer / float(self.max_observed_pot)))
-        else:
-            self.potentiometer_ratio = 0.5
+        self.potentiometer_ratio = raw_potentiometer / 4095.0
 
         centered_knob_position = 2.0 * self.potentiometer_ratio - 1.0
         cubic_curve = centered_knob_position * centered_knob_position * centered_knob_position
         exponent_scale = cubic_curve * 2.0
         self.sensitivity = self.base_sensitivity * (2.0 ** exponent_scale)
+
 
     def _resolve_button_states(self, button_bitmask, timestamp):
         raw_clutch_pressed = bool(button_bitmask & 0x01)
