@@ -83,7 +83,7 @@ DEFAULT_REPOSITION_SLOWDOWN_EXP = 1.35
 
 
 # ==============================================================================
-# 5. MOUSE ACCELERATION CURVE
+# 5. ACCELERATION CURVE
 # ==============================================================================
 # Acceleration factor applied during rapid wrist flicks.
 # 0.0 = linear 1:1 mapping; >0.0 = dynamic acceleration boost.
@@ -115,25 +115,27 @@ DEFAULT_CLICK_INITIAL_FACTOR = 0.1
 # Range: 0.80 to 1.0 (Default: 0.95)
 DEFAULT_CLICK_TARGET_FACTOR = 0.95
 
-# Time interval (seconds) per decay step.
-# Range: 0.05 to 0.5 s (Default: 0.08 s = 80ms)
-DEFAULT_CLICK_DECAY_INTERVAL = 0.08
+# Duration in seconds for recovery back to target speed cap.
+# Range: 0.1 to 1.5 s (Default: 0.4 s = 400ms)
+DEFAULT_CLICK_SLOWDOWN_DURATION = 0.6
 
-# Fractional recovery step towards target speed per interval (0.2 = 20% per 80ms).
-# Range: 0.10 to 1.0 (Default: 0.2)
-DEFAULT_CLICK_DECAY_STEP = 0.2
+# Exponent controlling recovery curve linearity (1.0 = linear, <1.0 = fast start, >1.0 = slow start).
+# Range: 0.2 to 3.0 (Default: 1.0)
+DEFAULT_CLICK_SLOWDOWN_EXPONENT = 0.5
 
 
 # ==============================================================================
-# 7. SCROLL & PAN MODE (Gesture Button Held + Wrist Motion)
+# 7. SCROLL & PAN MODE (Main Clutch Button Held + Wrist Motion)
 # ==============================================================================
-# Enable scroll & pan mode when holding gesture button without clicking.
+# Enable scroll & pan mode when holding main clutch button.
 # Expected: True / False (Default: True)
 DEFAULT_SCROLL_MODE_ENABLED = True
 
-# Scroll sensitivity multiplier converting gyro rates to wheel scroll steps.
-# Range: 0.1 to 5.0 (Default: 1.0)
+# Scroll & Pan sensitivity multipliers converting gyro rates to wheel scroll steps.
+# Range: 0.1 to 10.0 (Default: 1.0)
 DEFAULT_SCROLL_SENSITIVITY = 1.0
+DEFAULT_PAN_SENSITIVITY_X = 2.0
+DEFAULT_PAN_SENSITIVITY_Y = 2.0
 
 # Scroll deadzone threshold (rad/s) to prevent unwanted scrolling during tiny hand tremors.
 # Range: 0.005 to 0.05 rad/s (Default: 0.02)
@@ -144,11 +146,43 @@ DEFAULT_SCROLL_DEADZONE = 0.02
 # Expected: True / False (Default: True)
 DEFAULT_INVERT_VERTICAL_SCROLL = True
 
+# Pan mode activation hold duration in seconds (must hold clutch relatively still for this duration).
+# Range: 0.1 to 2.0 s (Default: 0.5 s = 500ms)
+DEFAULT_PAN_ACTIVATION_DELAY = 0.5
+
+# Max motion speed (rad/s) allowed during the hold delay to be considered "relatively still".
+# Range: 0.02 to 0.5 rad/s (Default: 0.15)
+DEFAULT_PAN_STILLNESS_THRESHOLD = 0.15
+
+
 
 
 # ==============================================================================
-# 8. HARDWARE & CLUTCH LOGIC
+# 8. POST-PAN RELEASE SLOWDOWN (Clutch Button Release Decay)
 # ==============================================================================
+# Enable transient slowdown upon releasing main clutch / pan button for smooth hand reset.
+# Expected: True / False (Default: True)
+DEFAULT_POST_PAN_SLOWDOWN_ENABLED = True
+
+
+# Initial sensitivity multiplier when gesture button is released (t=0ms).
+# Range: 0.1 to 1.0 (Default: 0.5)
+DEFAULT_POST_PAN_INITIAL_FACTOR = 0.5
+
+# Duration in seconds for recovery back to 100% active speed.
+# Range: 0.2 to 1.5 s (Default: 0.6 s = 600ms)
+DEFAULT_POST_PAN_SLOWDOWN_DURATION = 0.6
+
+# Exponent controlling recovery curve linearity (1.0 = linear, <1.0 = fast start, >1.0 = slow start).
+# Range: 0.2 to 3.0 (Default: 1.0)
+DEFAULT_POST_PAN_SLOWDOWN_EXPONENT = 0.7
+
+
+
+# ==============================================================================
+# 9. HARDWARE & CLUTCH LOGIC
+# ==============================================================================
+
 # Invert clutch logic.
 # True = mouse active by default (holding clutch pauses); False = paused by default.
 # Expected: True / False (Default: True)

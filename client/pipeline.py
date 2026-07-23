@@ -4,6 +4,7 @@ try:
         OneEuroFilter,
         MadgwickFilter,
         AutoZeroBiasCalibrator,
+        StateTransitionSlowdown,
         apply_deadzone_filter,
     )
     from .config import (
@@ -17,14 +18,23 @@ try:
         DEFAULT_ACTIVE_SLOWDOWN_SPEED,
         DEFAULT_ACTIVE_SLOWDOWN_EXP,
         DEFAULT_CLICK_SLOWDOWN_ENABLED,
+        DEFAULT_CLICK_SLOWDOWN_ENABLED,
         DEFAULT_CLICK_INITIAL_FACTOR,
         DEFAULT_CLICK_TARGET_FACTOR,
-        DEFAULT_CLICK_DECAY_INTERVAL,
-        DEFAULT_CLICK_DECAY_STEP,
+        DEFAULT_CLICK_SLOWDOWN_DURATION,
+        DEFAULT_CLICK_SLOWDOWN_EXPONENT,
         DEFAULT_SCROLL_MODE_ENABLED,
         DEFAULT_SCROLL_SENSITIVITY,
+        DEFAULT_PAN_SENSITIVITY_X,
+        DEFAULT_PAN_SENSITIVITY_Y,
         DEFAULT_SCROLL_DEADZONE,
         DEFAULT_INVERT_VERTICAL_SCROLL,
+        DEFAULT_PAN_ACTIVATION_DELAY,
+        DEFAULT_PAN_STILLNESS_THRESHOLD,
+        DEFAULT_POST_PAN_SLOWDOWN_ENABLED,
+        DEFAULT_POST_PAN_INITIAL_FACTOR,
+        DEFAULT_POST_PAN_SLOWDOWN_DURATION,
+        DEFAULT_POST_PAN_SLOWDOWN_EXPONENT,
         DEFAULT_REPOSITION_SENS_FACTOR,
         DEFAULT_REPOSITION_MIN_CUTOFF,
         DEFAULT_REPOSITION_DEADZONE,
@@ -42,6 +52,7 @@ except ImportError:
         OneEuroFilter,
         MadgwickFilter,
         AutoZeroBiasCalibrator,
+        StateTransitionSlowdown,
         apply_deadzone_filter,
     )
     from config import (
@@ -57,12 +68,20 @@ except ImportError:
         DEFAULT_CLICK_SLOWDOWN_ENABLED,
         DEFAULT_CLICK_INITIAL_FACTOR,
         DEFAULT_CLICK_TARGET_FACTOR,
-        DEFAULT_CLICK_DECAY_INTERVAL,
-        DEFAULT_CLICK_DECAY_STEP,
+        DEFAULT_CLICK_SLOWDOWN_DURATION,
+        DEFAULT_CLICK_SLOWDOWN_EXPONENT,
         DEFAULT_SCROLL_MODE_ENABLED,
         DEFAULT_SCROLL_SENSITIVITY,
+        DEFAULT_PAN_SENSITIVITY_X,
+        DEFAULT_PAN_SENSITIVITY_Y,
         DEFAULT_SCROLL_DEADZONE,
         DEFAULT_INVERT_VERTICAL_SCROLL,
+        DEFAULT_PAN_ACTIVATION_DELAY,
+        DEFAULT_PAN_STILLNESS_THRESHOLD,
+        DEFAULT_POST_PAN_SLOWDOWN_ENABLED,
+        DEFAULT_POST_PAN_INITIAL_FACTOR,
+        DEFAULT_POST_PAN_SLOWDOWN_DURATION,
+        DEFAULT_POST_PAN_SLOWDOWN_EXPONENT,
         DEFAULT_REPOSITION_SENS_FACTOR,
         DEFAULT_REPOSITION_MIN_CUTOFF,
         DEFAULT_REPOSITION_DEADZONE,
@@ -90,12 +109,20 @@ class AirMousePipeline:
         click_slowdown_enabled=DEFAULT_CLICK_SLOWDOWN_ENABLED,
         click_initial_factor=DEFAULT_CLICK_INITIAL_FACTOR,
         click_target_factor=DEFAULT_CLICK_TARGET_FACTOR,
-        click_decay_interval=DEFAULT_CLICK_DECAY_INTERVAL,
-        click_decay_step=DEFAULT_CLICK_DECAY_STEP,
+        click_duration=DEFAULT_CLICK_SLOWDOWN_DURATION,
+        click_exponent=DEFAULT_CLICK_SLOWDOWN_EXPONENT,
         scroll_mode_enabled=DEFAULT_SCROLL_MODE_ENABLED,
         scroll_sensitivity=DEFAULT_SCROLL_SENSITIVITY,
+        pan_sensitivity_x=None,
+        pan_sensitivity_y=None,
         scroll_deadzone=DEFAULT_SCROLL_DEADZONE,
         invert_vertical_scroll=DEFAULT_INVERT_VERTICAL_SCROLL,
+        pan_activation_delay=DEFAULT_PAN_ACTIVATION_DELAY,
+        pan_stillness_threshold=DEFAULT_PAN_STILLNESS_THRESHOLD,
+        post_pan_slowdown_enabled=DEFAULT_POST_PAN_SLOWDOWN_ENABLED,
+        post_pan_initial_factor=DEFAULT_POST_PAN_INITIAL_FACTOR,
+        post_pan_duration=DEFAULT_POST_PAN_SLOWDOWN_DURATION,
+        post_pan_exponent=DEFAULT_POST_PAN_SLOWDOWN_EXPONENT,
         acceleration_factor=DEFAULT_ACCEL_FACTOR,
         acceleration_exponent=DEFAULT_ACCEL_EXPONENT,
         acceleration_threshold=DEFAULT_ACCEL_THRESHOLD,
@@ -115,14 +142,35 @@ class AirMousePipeline:
         self.active_slowdown_speed = active_slowdown_speed
         self.active_slowdown_exp = active_slowdown_exp
         self.click_slowdown_enabled = click_slowdown_enabled
-        self.click_initial_factor = click_initial_factor
-        self.click_target_factor = click_target_factor
-        self.click_decay_interval = click_decay_interval
-        self.click_decay_step = click_decay_step
+        self.click_slowdown = StateTransitionSlowdown(
+            initial_factor=click_initial_factor,
+            target_factor=click_target_factor,
+            duration_seconds=click_duration,
+            exponent=click_exponent
+        )
         self.scroll_mode_enabled = scroll_mode_enabled
         self.scroll_sensitivity = scroll_sensitivity
+        self.pan_sensitivity_x = pan_sensitivity_x if pan_sensitivity_x is not None else scroll_sensitivity
+        self.pan_sensitivity_y = pan_sensitivity_y if pan_sensitivity_y is not None else scroll_sensitivity
         self.scroll_deadzone = scroll_deadzone
         self.invert_vertical_scroll = invert_vertical_scroll
+        self.pan_activation_delay = pan_activation_delay
+        self.pan_stillness_threshold = pan_stillness_threshold
+        self.post_pan_slowdown_enabled = post_pan_slowdown_enabled
+
+
+        self.post_pan_slowdown = StateTransitionSlowdown(
+            initial_factor=post_pan_initial_factor,
+            target_factor=1.0,
+            duration_seconds=post_pan_duration,
+            exponent=post_pan_exponent
+        )
+
+        self.clutch_hold_start_timestamp = None
+        self.is_pan_mode_active = False
+        self.previous_pan_mode_active = False
+        self.previous_click_held = False
+        self.previous_clutch_pressed = False
 
         self.acceleration_factor = acceleration_factor
         self.acceleration_exponent = acceleration_exponent
@@ -134,14 +182,10 @@ class AirMousePipeline:
         self.reposition_slowdown_speed = reposition_slowdown_speed
         self.reposition_slowdown_exp = reposition_slowdown_exp
 
-        self.click_start_timestamp = None
         self.previous_click_held = False
+        self.previous_clutch_pressed = False
         self.scroll_accumulator_x = 0.0
         self.scroll_accumulator_y = 0.0
-
-
-
-
 
         self.calibrator = AutoZeroBiasCalibrator()
         self.one_euro_filter_gyroscope_x = OneEuroFilter(
@@ -187,8 +231,7 @@ class AirMousePipeline:
         button_bitmask, raw_gyro, raw_accel, raw_potentiometer = self._parse_packet_fields(unpacked_packet)
         self._update_potentiometer_sensitivity(raw_potentiometer)
 
-        is_clutch_active, is_left_click, is_right_click, is_slowdown_mode, is_click_held, is_gesture_active = self._resolve_button_states(button_bitmask, timestamp)
-
+        is_clutch_active, is_left_click, is_right_click, is_slowdown_mode, is_click_held, is_gesture_active, raw_clutch_pressed = self._resolve_button_states(button_bitmask, timestamp)
 
         gyroscope_uncalibrated, accelerometer = self._scale_sensor_readings(raw_gyro, raw_accel)
         self._handle_clutch_gravity_alignment(is_clutch_active, accelerometer)
@@ -203,6 +246,16 @@ class AirMousePipeline:
             delta_time
         )
         screen_pitch_rate, screen_yaw_rate = self._project_gyroscope_rates(gyroscope[0], gyroscope[2], roll_radians)
+        is_pan_active = self._update_pan_activation_state(raw_clutch_pressed, timestamp, screen_pitch_rate, screen_yaw_rate)
+
+
+
+        if self.previous_pan_mode_active and not is_pan_active:
+            if self.post_pan_slowdown_enabled:
+                self.post_pan_slowdown.trigger(timestamp)
+        if is_pan_active:
+            self.post_pan_slowdown.reset()
+        self.previous_pan_mode_active = is_pan_active
 
         effective_sensitivity = self.calculate_effective_sensitivity(screen_pitch_rate, screen_yaw_rate)
         if is_slowdown_mode:
@@ -210,22 +263,45 @@ class AirMousePipeline:
         else:
             effective_sensitivity = self._apply_active_slowdown(effective_sensitivity, screen_pitch_rate, screen_yaw_rate)
 
-        if is_gesture_active and not is_click_held and self.scroll_mode_enabled:
+        if is_click_held and self.click_slowdown_enabled:
+            effective_sensitivity *= self.click_slowdown.calculate_multiplier(timestamp)
+        elif self.post_pan_slowdown.is_active:
+            effective_sensitivity *= self.post_pan_slowdown.calculate_multiplier(timestamp)
+
+        if is_pan_active and self.scroll_mode_enabled:
             scroll_steps_x, scroll_steps_y = self._process_scroll_and_pan(screen_pitch_rate, screen_yaw_rate)
-            movement_x = 0
-            movement_y = 0
         else:
             scroll_steps_x = 0
             scroll_steps_y = 0
-            if is_click_held and self.click_slowdown_enabled:
-                effective_sensitivity = self._apply_dynamic_click_slowdown(effective_sensitivity, timestamp)
 
-            movement_x, movement_y = self._accumulate_subpixel_movement(
-                delta_x=-screen_yaw_rate * effective_sensitivity,
-                delta_y=-screen_pitch_rate * effective_sensitivity
-            )
+        movement_x, movement_y = self._accumulate_subpixel_movement(
+            delta_x=-screen_yaw_rate * effective_sensitivity,
+            delta_y=-screen_pitch_rate * effective_sensitivity
+        )
 
-        return movement_x, movement_y, is_clutch_active, is_left_click, is_right_click, is_gesture_active, scroll_steps_x, scroll_steps_y
+        return movement_x, movement_y, is_clutch_active, is_left_click, is_right_click, is_gesture_active, scroll_steps_x, scroll_steps_y, raw_clutch_pressed, is_pan_active
+
+    def _update_pan_activation_state(self, raw_clutch_pressed, timestamp, screen_pitch_rate, screen_yaw_rate):
+        if not raw_clutch_pressed:
+            self.clutch_hold_start_timestamp = None
+            self.is_pan_mode_active = False
+            return False
+
+        motion_speed = math.sqrt(screen_pitch_rate * screen_pitch_rate + screen_yaw_rate * screen_yaw_rate)
+
+        if not self.is_pan_mode_active:
+            if motion_speed > self.pan_stillness_threshold:
+                self.clutch_hold_start_timestamp = None
+                return False
+
+            if self.clutch_hold_start_timestamp is None:
+                self.clutch_hold_start_timestamp = timestamp
+
+            hold_duration = timestamp - self.clutch_hold_start_timestamp
+            if hold_duration >= self.pan_activation_delay:
+                self.is_pan_mode_active = True
+
+        return self.is_pan_mode_active
 
 
 
@@ -262,15 +338,22 @@ class AirMousePipeline:
         is_click_held = is_left_click or is_right_click
 
         if is_click_held and self.click_slowdown_enabled:
-            if not self.previous_click_held or self.click_start_timestamp is None:
-                self.click_start_timestamp = timestamp
+            if not self.previous_click_held:
+                self.click_slowdown.trigger(timestamp)
         else:
-            self.click_start_timestamp = None
+            self.click_slowdown.reset()
 
         self.previous_click_held = is_click_held
         is_slowdown_mode = not is_clutch_active
 
-        return is_clutch_active, is_left_click, is_right_click, is_slowdown_mode, is_click_held, is_gesture_active
+        return is_clutch_active, is_left_click, is_right_click, is_slowdown_mode, is_click_held, is_gesture_active, raw_clutch_pressed
+
+    def trigger_click_slowdown(self, timestamp):
+        if self.click_slowdown_enabled:
+            self.click_slowdown.trigger(timestamp)
+
+
+
 
 
 
@@ -336,23 +419,14 @@ class AirMousePipeline:
             return effective_sensitivity * slowdown_factor
         return effective_sensitivity
 
-    def _apply_dynamic_click_slowdown(self, effective_sensitivity, timestamp):
-        if self.click_start_timestamp is None:
-            return effective_sensitivity
-        t_elapsed = max(0.0, timestamp - self.click_start_timestamp)
-        progress_steps = t_elapsed / self.click_decay_interval if self.click_decay_interval > 0.0 else 1.0
-        gap = self.click_target_factor - self.click_initial_factor
-        raw_factor = self.click_initial_factor + gap * (progress_steps * self.click_decay_step)
-        dynamic_factor = min(self.click_target_factor, raw_factor)
-        return effective_sensitivity * dynamic_factor
-
     def _process_scroll_and_pan(self, screen_pitch_rate, screen_yaw_rate):
         pitch_rate = apply_deadzone_filter(screen_pitch_rate, self.scroll_deadzone)
         yaw_rate = apply_deadzone_filter(screen_yaw_rate, self.scroll_deadzone)
 
         vertical_direction = -1.0 if self.invert_vertical_scroll else 1.0
-        scroll_delta_y = pitch_rate * self.scroll_sensitivity * vertical_direction
-        scroll_delta_x = yaw_rate * self.scroll_sensitivity
+        scroll_delta_y = pitch_rate * self.pan_sensitivity_y * vertical_direction
+        scroll_delta_x = yaw_rate * self.pan_sensitivity_x
+
 
         self.scroll_accumulator_y += scroll_delta_y
         self.scroll_accumulator_x += scroll_delta_x
