@@ -7,6 +7,7 @@ import .utils.logger show logger-init
 import .utils.rgb_led show RgbLed
 import .utils.rgb_indicator show RgbIndicator
 import .utils.overload_led show OverloadLed
+import .utils.pan_led show PanLed
 import .tasks.cpu_monitor show CpuMonitor
 import .tasks.potentiometer_manager show PotentiometerManager
 import .tasks.gesture_manager show GestureManager
@@ -23,6 +24,7 @@ LEFT-CLICK-LED-PIN  ::= 8
 RIGHT-CLICK-LED-PIN ::= 11
 POTENTIOMETER-PIN   ::= 9
 GESTURE-PIN         ::= 38
+PAN-LED-PIN         ::= 47
 
 RED-RGB-PIN   ::= 6
 GREEN-RGB-PIN ::= 5
@@ -47,11 +49,13 @@ run-airmouse-app:
 
   rgb-led := RgbLed --red=RED-RGB-PIN --green=GREEN-RGB-PIN --blue=BLUE-RGB-PIN --brightness=10
   overload-led := OverloadLed --pin-num=OVERLOAD-LED-PIN
+  pan-led := PanLed --pin-num=PAN-LED-PIN
 
   cpu-monitor := CpuMonitor --led=overload-led
   cpu-monitor.start
 
   wireless-connection := WifiServer --name=DEVICE-NAME --tx-queue-size=42
+  wireless-connection.on-command = :: |state| pan-led.set state
   wireless-connection.start
 
   rgb-indicator := RgbIndicator wireless-connection rgb-led

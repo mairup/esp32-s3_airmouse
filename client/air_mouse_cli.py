@@ -4,6 +4,7 @@ import socket
 import struct
 import signal
 import argparse
+import subprocess
 from evdev import UInput, ecodes as e
 
 try:
@@ -124,6 +125,27 @@ def initialize_udp_socket(server_ip, server_port):
 
 def send_heartbeat_handshake(client_socket, server_ip, server_port):
     client_socket.sendto(b"HELLO", (server_ip, server_port))
+
+
+def send_led_command(client_socket, server_ip, server_port, led_on):
+    payload = struct.pack("<BB", 0xFF, 1 if led_on else 0)
+    client_socket.sendto(payload, (server_ip, server_port))
+
+
+def set_cursor_hand():
+    try:
+        subprocess.run(["xsetroot", "-cursor_name", "hand2"], timeout=0.1,
+                       capture_output=True, check=False)
+    except Exception:
+        pass
+
+
+def restore_cursor():
+    try:
+        subprocess.run(["xsetroot", "-cursor_name", "left_ptr"], timeout=0.1,
+                       capture_output=True, check=False)
+    except Exception:
+        pass
 
 
 def parse_command_line_arguments():
@@ -363,6 +385,7 @@ def run_air_mouse_cli():
     is_gesture = False
     raw_clutch = False
     is_pan_active = False
+    previous_pan_active = False
 
     try:
         while running:
@@ -383,6 +406,15 @@ def run_air_mouse_cli():
 
                 movement_x, movement_y, is_active, is_left, is_right, is_gesture, scroll_x, scroll_y, raw_clutch, is_pan_active = pipeline.process_frame(unpacked_packet, current_time, delta_time)
 
+                if is_pan_active != previous_pan_active:
+                    if is_pan_active:
+                        set_cursor_hand()
+                        send_led_command(client_socket, arguments.ip_address, arguments.port, True)
+                    else:
+                        restore_cursor()
+                        send_led_command(client_socket, arguments.ip_address, arguments.port, False)
+                    previous_pan_active = is_pan_active
+
                 last_left_click, last_right_click = update_mouse_button_states(
                     virtual_mouse_device, is_left, is_right, is_gesture, last_left_click, last_right_click, pipeline, current_time
                 )
@@ -402,6 +434,8 @@ def run_air_mouse_cli():
     finally:
         sys.stdout.write("\n[AirMouse CLI] Shutting down...\n")
         sys.stdout.flush()
+        restore_cursor()
+        send_led_command(client_socket, arguments.ip_address, arguments.port, False)
         try:
             if last_left_click or last_right_click:
                 virtual_mouse_device.write(e.EV_KEY, e.BTN_LEFT, 0)
