@@ -1,9 +1,10 @@
 import log
 import .rgb_led show RgbLed
+import ..wifi_server show WifiServer
 
 class RgbIndicator:
   led /RgbLed
-  server /any
+  server /WifiServer
 
   last-r_ := -1
   last-g_ := -1
@@ -43,15 +44,15 @@ class RgbIndicator:
       g := 0
       b := 0
       
-      if state == 0:
+      if state == WifiServer.STATE-STOPPED:
         r = 0; g = 0; b = 0
-      else if state == 1:
+      else if state == WifiServer.STATE-STARTING:
         r = 255; g = 128; b = 0
-      else if state == 2:
+      else if state == WifiServer.STATE-ADVERTISING:
         r = 0; g = 0; b = 255
-      else if state == 3:
+      else if state == WifiServer.STATE-CONNECTED:
         r = 0; g = 255; b = 0
-      else if state == 4:
+      else if state == WifiServer.STATE-ERROR:
         r = 255; g = 0; b = 0
 
       if r != last-r_ or g != last-g_ or b != last-b_:
@@ -61,3 +62,4 @@ class RgbIndicator:
         last-b_ = b
 
       sleep --ms=10
+
