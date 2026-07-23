@@ -9,17 +9,6 @@ class CpuMonitor:
 
   constructor --.led:
 
-  // Simulates latency switching between normal (1000us) and overloaded (3000us)
-  simulate -> none:
-    task::
-      4.repeat:
-        latency-us_ = 1000
-        sleep --ms=1000
-        latency-us_ = 3000
-        sleep --ms=2000
-      
-      log.info "CPU Monitor simulation finished"  
-
   update-latency latency/int -> none:
     latency-us_ = latency
 

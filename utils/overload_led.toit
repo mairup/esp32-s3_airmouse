@@ -16,11 +16,3 @@ class OverloadLed:
   off -> none:
     pin_.set 0
 
-  toggle -> none:
-    pin_.set (pin_.get == 0 ? 1 : 0)
-
-  blink-test -> none:
-    10.repeat:
-      toggle
-      sleep --ms=100
-    off

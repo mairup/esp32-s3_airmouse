@@ -24,10 +24,6 @@ OUTPUT-X-LOW-ACCELEROMETER ::= 0x28
 ADDRESS-LOW ::= 0x6A
 ADDRESS-HIGH ::= 0x6B
 
-// Conversion factors for ±500 dps Gyro and ±4g Accel
-GYRO-SCALE-RAD-PER-SEC ::= 0.000305432619 // 0.0175 dps/LSB * (PI / 180)
-ACCEL-SCALE-G          ::= 0.000122       // 0.122 mg/LSB
-
 
 
 class Imu:
@@ -159,30 +155,3 @@ class Imu:
     if error:
       log.warn "IMU read failed: $error"
 
-  read-status -> int:
-    if not device_: return 0
-    error := catch:
-      return (device_.read-reg STATUS-REGISTER 1)[0]
-    return -1
-
-  // Raw integer getters
-  gyro-x -> int: return imu-data.gyro_x
-  gyro-y -> int: return imu-data.gyro_y
-  gyro-z -> int: return imu-data.gyro_z
-  accel-x -> int: return imu-data.accel_x
-  accel-y -> int: return imu-data.accel_y
-  accel-z -> int: return imu-data.accel_z
-
-  // Helper getters for physical units
-  gyro-x-rad -> float: return imu-data.gyro_x * GYRO-SCALE-RAD-PER-SEC
-  gyro-y-rad -> float: return imu-data.gyro_y * GYRO-SCALE-RAD-PER-SEC
-  gyro-z-rad -> float: return imu-data.gyro_z * GYRO-SCALE-RAD-PER-SEC
-
-  accel-x-g -> float: return imu-data.accel_x * ACCEL-SCALE-G
-  accel-y-g -> float: return imu-data.accel_y * ACCEL-SCALE-G
-  accel-z-g -> float: return imu-data.accel_z * ACCEL-SCALE-G
-
-  to-signed-16_ value/int -> int:
-    if value >= 32768:
-      return value - 65536
-    return value

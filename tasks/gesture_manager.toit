@@ -1,6 +1,5 @@
 import gpio
 import log
-import math
 import ..imu show Imu
 import ..utils.rgb_led show RgbLed
 import ..utils.rgb_indicator show RgbIndicator

@@ -81,10 +81,6 @@ DEFAULT_ACCEL_THRESHOLD           = 0.4
 # ------------------------------------------------------------------------------
 # GROUP 5: HARDWARE & DEBOUNCE
 # ------------------------------------------------------------------------------
-# DEFAULT_BUTTON_DEBOUNCE_SEC (Range: 0.01 to 0.10 sec)
-#   Higher = strict double-click guard against contact bounce; Lower = faster button click response rate.
-DEFAULT_BUTTON_DEBOUNCE_SEC       = 0.045
-
 # DEFAULT_INVERT_CLUTCH (Range: True / False)
 #   True = Air mouse is ACTIVE by default (holding clutch pauses); False = Air mouse PAUSED by default (holding clutch activates).
 DEFAULT_INVERT_CLUTCH             = True
