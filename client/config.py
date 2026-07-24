@@ -126,11 +126,11 @@ DEFAULT_CLICK_INITIAL_FACTOR = 0.0
 
 # Duration in seconds for recovery back to 100% active speed.
 # Range: 0.1 to 1.5 s (Default: 0.7 s = 700ms)
-DEFAULT_CLICK_SLOWDOWN_DURATION = 0.7
+DEFAULT_CLICK_SLOWDOWN_DURATION = 1.0
 
 # Exponent controlling recovery curve linearity (1.0 = linear, <1.0 = fast start, >1.0 = slow start).
 # Range: 0.2 to 3.0 (Default: 1.0)
-DEFAULT_CLICK_SLOWDOWN_EXPONENT = 0.7
+DEFAULT_CLICK_SLOWDOWN_EXPONENT = 0.6
 
 
 # ==============================================================================
@@ -163,11 +163,11 @@ DEFAULT_SCROLL_AXIS_LOCK = True
 # Minimum accumulated translated scroll distance before locking to an axis (vertical or horizontal).
 # Prevents accidental axis lock from tiny initial hand jitters.
 # Range: 0.01 to 1.0 steps (Default: 0.05)
-DEFAULT_PAN_AXIS_LOCK_THRESHOLD = 0.05
+DEFAULT_PAN_AXIS_LOCK_THRESHOLD = 2.0
 
 # Pan mode activation hold duration in seconds (must hold clutch relatively still for this duration).
 # Range: 0.1 to 2.0 s (Default: 0.5 s = 500ms)
-DEFAULT_PAN_ACTIVATION_DELAY = 0.1
+DEFAULT_PAN_ACTIVATION_DELAY = 0.15
 
 # Max motion speed (rad/s) allowed during the hold delay to be considered "relatively still".
 # Range: 0.02 to 0.5 rad/s (Default: 0.15)
@@ -190,7 +190,7 @@ DEFAULT_POST_PAN_INITIAL_FACTOR = 0.5
 
 # Duration in seconds for recovery back to 100% active speed.
 # Range: 0.2 to 1.5 s (Default: 0.6 s = 600ms)
-DEFAULT_POST_PAN_SLOWDOWN_DURATION = 0.6
+DEFAULT_POST_PAN_SLOWDOWN_DURATION = 1.2
 
 # Exponent controlling recovery curve linearity (1.0 = linear, <1.0 = fast start, >1.0 = slow start).
 # Range: 0.2 to 3.0 (Default: 1.0)
