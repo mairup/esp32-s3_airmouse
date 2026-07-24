@@ -131,7 +131,7 @@ def emit_scroll_movement(virtual_mouse_device, scroll_x, scroll_y):
 def initialize_udp_socket(server_ip, server_port):
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024 * 1024)
-    client_socket.settimeout(0.5)
+    client_socket.settimeout(0.01)
     return client_socket
 
 
