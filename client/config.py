@@ -141,10 +141,10 @@ DEFAULT_CLICK_SLOWDOWN_EXPONENT = 0.6
 DEFAULT_SCROLL_MODE_ENABLED = True
 
 # Scroll & Pan sensitivity multipliers converting gyro rates to wheel scroll steps.
-# Range: 0.1 to 10.0 (Default: 1.0)
-DEFAULT_SCROLL_SENSITIVITY = 2.0
-DEFAULT_PAN_SENSITIVITY_X = 2.0
-DEFAULT_PAN_SENSITIVITY_Y = 2.0
+# Range: 0.1 to 50.0 (Default: 12.0)
+DEFAULT_SCROLL_SENSITIVITY = 12.0
+DEFAULT_PAN_SENSITIVITY_X = 12.0
+DEFAULT_PAN_SENSITIVITY_Y = 12.0
 
 # Scroll deadzone threshold (rad/s) to prevent unwanted scrolling during tiny hand tremors.
 # Range: 0.005 to 0.05 rad/s (Default: 0.02)
@@ -162,8 +162,8 @@ DEFAULT_SCROLL_AXIS_LOCK = True
 
 # Minimum physical wrist angle (radians) before locking pan axis (vertical or horizontal).
 # Measured directly from raw sensor displacement, independent of OS sensitivity settings.
-# Range: 0.005 to 0.50 rad (Default: 0.05 rad ≈ 2.8 degrees)
-DEFAULT_PAN_AXIS_LOCK_THRESHOLD = 0.05
+# Range: 0.005 to 0.50 rad (Default: 0.02 rad ≈ 1.1 degrees)
+DEFAULT_PAN_AXIS_LOCK_THRESHOLD = 0.02
 
 # Sliding time window (seconds) for pan axis lock motion integration.
 # Uses a leaky signed integrator so circular motion and wiggles cancel out (+ and -)
@@ -173,11 +173,11 @@ DEFAULT_PAN_AXIS_LOCK_DECAY_TIME = 0.25
 
 # Pan mode activation hold duration in seconds (must hold clutch relatively still for this duration).
 # Range: 0.1 to 2.0 s (Default: 0.5 s = 500ms)
-DEFAULT_PAN_ACTIVATION_DELAY = 0.12
+DEFAULT_PAN_ACTIVATION_DELAY = 0.1
 
 # Max motion speed (rad/s) allowed during the hold delay to be considered "relatively still".
 # Range: 0.02 to 0.5 rad/s (Default: 0.15)
-DEFAULT_PAN_STILLNESS_THRESHOLD = 0.25
+DEFAULT_PAN_STILLNESS_THRESHOLD = 0.15
 
 
 
