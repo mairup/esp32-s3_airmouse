@@ -28,6 +28,7 @@ try:
         DEFAULT_SCROLL_DEADZONE,
         DEFAULT_INVERT_VERTICAL_SCROLL,
         DEFAULT_SCROLL_AXIS_LOCK,
+        DEFAULT_PAN_AXIS_LOCK_THRESHOLD,
         DEFAULT_PAN_ACTIVATION_DELAY,
         DEFAULT_PAN_STILLNESS_THRESHOLD,
         DEFAULT_POST_PAN_SLOWDOWN_ENABLED,
@@ -79,6 +80,7 @@ except ImportError:
         DEFAULT_SCROLL_DEADZONE,
         DEFAULT_INVERT_VERTICAL_SCROLL,
         DEFAULT_SCROLL_AXIS_LOCK,
+        DEFAULT_PAN_AXIS_LOCK_THRESHOLD,
         DEFAULT_PAN_ACTIVATION_DELAY,
         DEFAULT_PAN_STILLNESS_THRESHOLD,
         DEFAULT_POST_PAN_SLOWDOWN_ENABLED,
@@ -124,6 +126,7 @@ class AirMousePipeline:
         scroll_deadzone=DEFAULT_SCROLL_DEADZONE,
         invert_vertical_scroll=DEFAULT_INVERT_VERTICAL_SCROLL,
         scroll_axis_lock=DEFAULT_SCROLL_AXIS_LOCK,
+        pan_axis_lock_threshold=DEFAULT_PAN_AXIS_LOCK_THRESHOLD,
         pan_activation_delay=DEFAULT_PAN_ACTIVATION_DELAY,
         pan_stillness_threshold=DEFAULT_PAN_STILLNESS_THRESHOLD,
         post_pan_slowdown_enabled=DEFAULT_POST_PAN_SLOWDOWN_ENABLED,
@@ -166,6 +169,7 @@ class AirMousePipeline:
         self.scroll_deadzone = scroll_deadzone
         self.invert_vertical_scroll = invert_vertical_scroll
         self.scroll_axis_lock = scroll_axis_lock
+        self.pan_axis_lock_threshold = pan_axis_lock_threshold
         self.pan_activation_delay = pan_activation_delay
         self.pan_stillness_threshold = pan_stillness_threshold
         self.post_pan_slowdown_enabled = post_pan_slowdown_enabled
@@ -182,6 +186,8 @@ class AirMousePipeline:
         self.is_pan_mode_active = False
         self.pan_activation_failed_for_press = False
         self.locked_pan_axis = None
+        self.pan_init_accum_x = 0.0
+        self.pan_init_accum_y = 0.0
         self.previous_pan_mode_active = False
         self.previous_click_held = False
         self.previous_clutch_pressed = False
@@ -306,6 +312,8 @@ class AirMousePipeline:
             self.is_pan_mode_active = False
             self.pan_activation_failed_for_press = False
             self.locked_pan_axis = None
+            self.pan_init_accum_x = 0.0
+            self.pan_init_accum_y = 0.0
             return False
 
         if self.pan_activation_failed_for_press:
@@ -443,25 +451,33 @@ class AirMousePipeline:
         pitch_rate = apply_deadzone_filter(screen_pitch_rate, self.scroll_deadzone)
         yaw_rate = apply_deadzone_filter(screen_yaw_rate, self.scroll_deadzone)
 
-        if self.scroll_axis_lock:
-            if self.locked_pan_axis is None:
-                if pitch_rate != 0.0 or yaw_rate != 0.0:
-                    if abs(pitch_rate) >= abs(yaw_rate):
-                        self.locked_pan_axis = 'vertical'
-                    else:
-                        self.locked_pan_axis = 'horizontal'
-
-            if self.locked_pan_axis == 'vertical':
-                yaw_rate = 0.0
-                self.scroll_accumulator_x = 0.0
-            elif self.locked_pan_axis == 'horizontal':
-                pitch_rate = 0.0
-                self.scroll_accumulator_y = 0.0
-
         vertical_direction = -1.0 if self.invert_vertical_scroll else 1.0
         scroll_delta_y = pitch_rate * self.pan_sensitivity_y * vertical_direction
         scroll_delta_x = yaw_rate * self.pan_sensitivity_x
 
+        if self.scroll_axis_lock:
+            if self.locked_pan_axis is None:
+                self.pan_init_accum_x += abs(scroll_delta_x)
+                self.pan_init_accum_y += abs(scroll_delta_y)
+                if max(self.pan_init_accum_x, self.pan_init_accum_y) >= self.pan_axis_lock_threshold:
+                    if self.pan_init_accum_y >= self.pan_init_accum_x:
+                        self.locked_pan_axis = 'vertical'
+                        sign_y = 1.0 if scroll_delta_y >= 0.0 else -1.0
+                        self.scroll_accumulator_y = self.pan_init_accum_y * sign_y
+                    else:
+                        self.locked_pan_axis = 'horizontal'
+                        sign_x = 1.0 if scroll_delta_x >= 0.0 else -1.0
+                        self.scroll_accumulator_x = self.pan_init_accum_x * sign_x
+
+            if self.locked_pan_axis == 'vertical':
+                scroll_delta_x = 0.0
+                self.scroll_accumulator_x = 0.0
+            elif self.locked_pan_axis == 'horizontal':
+                scroll_delta_y = 0.0
+                self.scroll_accumulator_y = 0.0
+            else:
+                scroll_delta_x = 0.0
+                scroll_delta_y = 0.0
 
         self.scroll_accumulator_y += scroll_delta_y
         self.scroll_accumulator_x += scroll_delta_x
