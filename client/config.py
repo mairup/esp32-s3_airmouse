@@ -17,8 +17,8 @@ ACCEL_SCALE_G = 0.000122
 
 # Maximum raw potentiometer value received from the ESP32.
 # ESP32 computes: int(adc.get() * 4095) where adc.get() returns voltage in volts (0-3.3V).
-# Theoretical max = 3.3 * 4095 ≈ 13500. Override via --pot-max if hardware differs.
-DEFAULT_POT_MAX = 13500
+# Theoretical max = 3 * 4095 ≈ 12800. Override via --pot-max if hardware differs.
+DEFAULT_POT_MAX = 12800
 
 
 

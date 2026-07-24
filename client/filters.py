@@ -218,3 +218,39 @@ class AutoZeroBiasCalibrator:
 def apply_deadzone_filter(value, threshold=DEFAULT_DEADZONE_THRESHOLD):
     return 0.0 if abs(value) < threshold else value
 
+
+class StateTransitionSlowdown:
+    def __init__(self, initial_factor=0.3, target_factor=1.0, duration_seconds=0.7, exponent=1.0):
+        self.initial_factor = float(initial_factor)
+        self.target_factor = float(target_factor)
+        self.duration_seconds = float(duration_seconds)
+        self.exponent = float(exponent)
+        self.start_timestamp = None
+        self.is_active = False
+
+    def trigger(self, timestamp):
+        self.start_timestamp = timestamp
+        self.is_active = True
+
+    def reset(self):
+        self.start_timestamp = None
+        self.is_active = False
+
+    def calculate_multiplier(self, timestamp):
+        if not self.is_active or self.start_timestamp is None:
+            return 1.0
+
+        elapsed = timestamp - self.start_timestamp
+        if elapsed < 0.0:
+            return self.initial_factor
+
+        if elapsed >= self.duration_seconds or self.duration_seconds <= 0.0:
+            self.reset()
+            return 1.0
+
+        progress = elapsed / self.duration_seconds
+        curved_progress = progress ** self.exponent
+        gap = self.target_factor - self.initial_factor
+        return self.initial_factor + gap * curved_progress
+
+
