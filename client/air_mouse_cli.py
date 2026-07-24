@@ -137,8 +137,8 @@ def send_heartbeat_handshake(client_socket, server_ip, server_port):
     client_socket.sendto(b"HELLO", (server_ip, server_port))
 
 
-def send_led_command(client_socket, server_ip, server_port, led_on):
-    payload = struct.pack("<BB", 0xFF, 1 if led_on else 0)
+def send_led_command(client_socket, server_ip, server_port, bitmask):
+    payload = struct.pack("<BB", 0xFF, bitmask & 0xFF)
     client_socket.sendto(payload, (server_ip, server_port))
 
 
@@ -309,7 +309,10 @@ def display_streaming_status(pipeline, packet_counter, start_time, is_active, la
     pot_pct = int(pipeline.potentiometer_ratio * 100)
 
     if is_pan_active:
-        current_mode_str = "PAN/SCROLL"
+        if pipeline.locked_pan_axis:
+            current_mode_str = f"PAN-{pipeline.locked_pan_axis.upper()}"
+        else:
+            current_mode_str = "PAN/SCROLL"
     elif raw_clutch_pressed:
         current_mode_str = "PAN-HOLD..."
     elif last_left_click or last_right_click:
@@ -405,7 +408,7 @@ def run_air_mouse_cli():
     is_gesture = False
     raw_clutch = False
     is_pan_active = False
-    previous_pan_active = False
+    previous_led_bitmask = 0
 
     try:
         while running:
@@ -426,14 +429,17 @@ def run_air_mouse_cli():
 
                 movement_x, movement_y, is_active, is_left, is_right, is_gesture, scroll_x, scroll_y, raw_clutch, is_pan_active = pipeline.process_frame(unpacked_packet, current_time, delta_time)
 
-                if is_pan_active != previous_pan_active:
-                    if is_pan_active:
-                        set_cursor_hand()
-                        send_led_command(client_socket, arguments.ip_address, arguments.port, True)
-                    else:
-                        restore_cursor()
-                        send_led_command(client_socket, arguments.ip_address, arguments.port, False)
-                    previous_pan_active = is_pan_active
+                is_axis_locked = pipeline.locked_pan_axis is not None
+                current_led_bitmask = (1 if is_pan_active else 0) | (2 if is_axis_locked else 0)
+
+                if current_led_bitmask != previous_led_bitmask:
+                    send_led_command(client_socket, arguments.ip_address, arguments.port, current_led_bitmask)
+                    if (current_led_bitmask & 1) != (previous_led_bitmask & 1):
+                        if is_pan_active:
+                            set_cursor_hand()
+                        else:
+                            restore_cursor()
+                    previous_led_bitmask = current_led_bitmask
 
                 last_left_click, last_right_click = update_mouse_button_states(
                     virtual_mouse_device, is_left, is_right, is_gesture, last_left_click, last_right_click, pipeline, current_time
@@ -455,7 +461,7 @@ def run_air_mouse_cli():
         sys.stdout.write("\n[AirMouse CLI] Shutting down...\n")
         sys.stdout.flush()
         restore_cursor()
-        send_led_command(client_socket, arguments.ip_address, arguments.port, False)
+        send_led_command(client_socket, arguments.ip_address, arguments.port, 0)
         try:
             if last_left_click or last_right_click:
                 virtual_mouse_device.write(e.EV_KEY, e.BTN_LEFT, 0)

@@ -25,6 +25,7 @@ RIGHT-CLICK-LED-PIN ::= 11
 POTENTIOMETER-PIN   ::= 9
 GESTURE-PIN         ::= 38
 PAN-LED-PIN         ::= 10
+AXIS-LOCK-LED-PIN   ::= 13
 
 RED-RGB-PIN   ::= 6
 GREEN-RGB-PIN ::= 5
@@ -49,13 +50,13 @@ run-airmouse-app:
 
   rgb-led := RgbLed --red=RED-RGB-PIN --green=GREEN-RGB-PIN --blue=BLUE-RGB-PIN --brightness=10
   overload-led := OverloadLed --pin-num=OVERLOAD-LED-PIN
-  pan-led := PanLed --pin-num=PAN-LED-PIN
+  pan-led := PanLed --pan-pin=PAN-LED-PIN --axis-lock-pin=AXIS-LOCK-LED-PIN
 
   cpu-monitor := CpuMonitor --led=overload-led
   cpu-monitor.start
 
   wireless-connection := WifiServer --name=DEVICE-NAME --tx-queue-size=42
-  wireless-connection.on-command = :: |state| pan-led.set state
+  wireless-connection.on-command = :: |bitmask| pan-led.set-bitmask bitmask
   wireless-connection.start
 
   rgb-indicator := RgbIndicator wireless-connection rgb-led

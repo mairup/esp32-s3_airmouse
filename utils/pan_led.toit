@@ -1,16 +1,22 @@
 import gpio
 
-// Drives a single output LED pin in response to pan mode commands received from the client.
+// Drives hardware indicator LEDs (Pan Mode LED and Axis Lock LED) via bitmask commands received from the client.
 class PanLed:
-  pin_ /gpio.Pin
+  pan-pin_ /gpio.Pin
+  axis-lock-pin_ /gpio.Pin
 
-  constructor --pin-num/int:
-    pin_ = gpio.Pin pin-num --output
-    pin_.set 0
+  constructor --pan-pin/int --axis-lock-pin/int:
+    pan-pin_ = gpio.Pin pan-pin --output
+    pan-pin_.set 0
+    axis-lock-pin_ = gpio.Pin axis-lock-pin --output
+    axis-lock-pin_.set 0
 
-  set state/int -> none:
-    pin_.set state
+  set-bitmask bitmask/int -> none:
+    pan-pin_.set (bitmask & 0x01)
+    axis-lock-pin_.set ((bitmask & 0x02) >> 1)
 
   close -> none:
-    pin_.set 0
-    pin_.close
+    pan-pin_.set 0
+    pan-pin_.close
+    axis-lock-pin_.set 0
+    axis-lock-pin_.close
