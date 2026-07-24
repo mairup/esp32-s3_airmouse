@@ -160,18 +160,18 @@ DEFAULT_INVERT_VERTICAL_SCROLL = True
 # Expected: True / False (Default: True)
 DEFAULT_SCROLL_AXIS_LOCK = True
 
-# Minimum accumulated translated scroll distance before locking to an axis (vertical or horizontal).
-# Prevents accidental axis lock from tiny initial hand jitters.
-# Range: 0.01 to 1.0 steps (Default: 0.05)
-DEFAULT_PAN_AXIS_LOCK_THRESHOLD = 2.0
+# Minimum physical wrist angle (radians) before locking pan axis (vertical or horizontal).
+# Measured directly from raw sensor displacement, independent of OS sensitivity settings.
+# Range: 0.005 to 0.10 rad (Default: 0.02 rad ≈ 1.1 degrees)
+DEFAULT_PAN_AXIS_LOCK_THRESHOLD = 0.02
 
 # Pan mode activation hold duration in seconds (must hold clutch relatively still for this duration).
 # Range: 0.1 to 2.0 s (Default: 0.5 s = 500ms)
-DEFAULT_PAN_ACTIVATION_DELAY = 0.15
+DEFAULT_PAN_ACTIVATION_DELAY = 0.12
 
 # Max motion speed (rad/s) allowed during the hold delay to be considered "relatively still".
 # Range: 0.02 to 0.5 rad/s (Default: 0.15)
-DEFAULT_PAN_STILLNESS_THRESHOLD = 0.2
+DEFAULT_PAN_STILLNESS_THRESHOLD = 0.25
 
 
 

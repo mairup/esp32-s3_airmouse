@@ -294,7 +294,7 @@ class AirMousePipeline:
             effective_sensitivity *= self.post_pan_slowdown.calculate_multiplier(timestamp)
 
         if is_pan_active and self.scroll_mode_enabled:
-            scroll_steps_x, scroll_steps_y = self._process_scroll_and_pan(screen_pitch_rate, screen_yaw_rate)
+            scroll_steps_x, scroll_steps_y = self._process_scroll_and_pan(screen_pitch_rate, screen_yaw_rate, delta_time)
         else:
             scroll_steps_x = 0
             scroll_steps_y = 0
@@ -447,7 +447,7 @@ class AirMousePipeline:
             return effective_sensitivity * slowdown_factor
         return effective_sensitivity
 
-    def _process_scroll_and_pan(self, screen_pitch_rate, screen_yaw_rate):
+    def _process_scroll_and_pan(self, screen_pitch_rate, screen_yaw_rate, delta_time):
         pitch_rate = apply_deadzone_filter(screen_pitch_rate, self.scroll_deadzone)
         yaw_rate = apply_deadzone_filter(screen_yaw_rate, self.scroll_deadzone)
 
@@ -457,18 +457,18 @@ class AirMousePipeline:
 
         if self.scroll_axis_lock:
             if self.locked_pan_axis is None:
-                self.pan_init_accum_x += abs(scroll_delta_x)
-                self.pan_init_accum_y += abs(scroll_delta_y)
+                self.pan_init_accum_x += abs(yaw_rate) * delta_time
+                self.pan_init_accum_y += abs(pitch_rate) * delta_time
                 if max(self.pan_init_accum_x, self.pan_init_accum_y) >= self.pan_axis_lock_threshold:
                     if self.pan_init_accum_y >= self.pan_init_accum_x:
                         self.locked_pan_axis = 'vertical'
-                        sign_y = 1.0 if scroll_delta_y >= 0.0 else -1.0
-                        self.scroll_accumulator_y = self.pan_init_accum_y * sign_y
+                        sign_y = 1.0 if pitch_rate >= 0.0 else -1.0
+                        self.scroll_accumulator_y = self.pan_init_accum_y * self.pan_sensitivity_y * vertical_direction * sign_y
                         scroll_delta_y = 0.0
                     else:
                         self.locked_pan_axis = 'horizontal'
-                        sign_x = 1.0 if scroll_delta_x >= 0.0 else -1.0
-                        self.scroll_accumulator_x = self.pan_init_accum_x * sign_x
+                        sign_x = 1.0 if yaw_rate >= 0.0 else -1.0
+                        self.scroll_accumulator_x = self.pan_init_accum_x * self.pan_sensitivity_x * sign_x
                         scroll_delta_x = 0.0
 
             if self.locked_pan_axis == 'vertical':
