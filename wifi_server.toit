@@ -4,9 +4,7 @@ import monitor show Channel Latch
 import log
 
 class WifiServer:
-  // ========================================================================
-  // Constants
-  // ========================================================================
+  // --- Constants ---
   static STATE-STOPPED     ::= 0
   static STATE-STARTING    ::= 1
   static STATE-ADVERTISING ::= 2
@@ -17,9 +15,7 @@ class WifiServer:
   static HEARTBEAT-TIMEOUT ::= Duration --ms=1000
   static RECOVERY-DELAY    ::= Duration --ms=500
 
-  // ========================================================================
-  // Properties
-  // ========================================================================
+  // --- Properties ---
   name /string
   tx-bus /Channel
   
@@ -33,24 +29,23 @@ class WifiServer:
   server-socket /udp.Socket? := null
   target-address /net.SocketAddress? := null
   last-heartbeat-time /Time := Time.now
+  on-command /Lambda? := null
 
-  // ========================================================================
-  // Constructor
-  // ========================================================================
+  // --- Constructor ---
   constructor
       --.name/string
       --tx-queue-size=100:
     tx-bus = Channel tx-queue-size
 
-  // ========================================================================
-  // Public API
-  // ========================================================================
+  // --- Public API ---
   start -> none:
     if main-task:
       log.warn "[Wi-Fi] start called while already running, ignoring"
       return
 
+    log.info "Initializing and starting Wi-Fi Server..."
     set-state_ STATE-STARTING
+    log.info "SUCCESS: Wi-Fi Server startup initiated successfully"
     main-task = task::
       while true:
         error-latch := Latch
@@ -74,9 +69,13 @@ class WifiServer:
       return tx-bus.try-send data.to-byte-array
     return false
 
-  // ========================================================================
-  // State Management
-  // ========================================================================
+  /// Enqueue raw byte array to TX bus without string allocations.
+  send-bytes data/ByteArray -> bool:
+    if state == STATE-CONNECTED:
+      return tx-bus.try-send data
+    return false
+
+  // --- State Management ---
   static log-state-change_ state/int --context=null -> none:
     if state == STATE-ADVERTISING:
       log.info "SUCCESS: [Wi-Fi] UDP server advertising on port $PORT"
@@ -108,11 +107,11 @@ class WifiServer:
       if state == STATE-CONNECTED:
         set-state_ STATE-ADVERTISING
 
-  // ========================================================================
-  // Core Loops
-  // ========================================================================
+  // --- Core Loops ---
   run-server_ error-latch/Latch -> none:
+    log.info "Opening network..."
     network = net.open
+    log.info "SUCCESS: Network opened! IP: $(network.address)"
     server-socket = network.udp-open --port=PORT
     log.info "SUCCESS: Wi-Fi Server '$name' listening on $(network.address):$PORT"
     set-state_ STATE-ADVERTISING
@@ -127,7 +126,11 @@ class WifiServer:
       while true:
         datagram := server-socket.receive
         last-heartbeat-time = Time.now
-        register-client_ datagram.address
+        data := datagram.data
+        if data.size == 2 and data[0] == 0xFF:
+          if on-command: on-command.call data[1]
+        else:
+          register-client_ datagram.address
     if error and error != "CANCELED":
       error-latch.set error
 
@@ -146,9 +149,7 @@ class WifiServer:
         return
       sleep HEARTBEAT-TIMEOUT - elapsed
 
-  // ========================================================================
-  // Network Utilities
-  // ========================================================================
+  // --- Network Utilities ---
   transmit_ data/ByteArray -> none:
     error := catch: 
       datagram := udp.Datagram data target-address
@@ -165,8 +166,7 @@ class WifiServer:
     target-address = null
 
   clear-tx-queue_ -> none:
-    while tx-bus.receive --blocking=false:
-      null
+    while tx-bus.receive --blocking=false: null
 
   cancel-task_ task/Task? -> Task?:
     if task: task.cancel
@@ -176,6 +176,7 @@ class WifiServer:
     if socket: catch: socket.close
     return null
 
-  close-network_ netw/net.Interface? -> net.Interface?:
-    if netw: catch: netw.close
+  close-network_ network-interface/net.Interface? -> net.Interface?:
+    if network-interface: catch: network-interface.close
     return null
+

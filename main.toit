@@ -1,123 +1,91 @@
 import log
-import net
 import .wifi_server show WifiServer 
-import .tasks.heartbeat show Heartbeat
-import .tasks.button show ButtonService
+import .tasks.imu_pipeline show ImuPipeline
+import .tasks.button_manager show ButtonManager
 import .imu show Imu
 import .utils.logger show logger-init
 import .utils.rgb_led show RgbLed
 import .utils.rgb_indicator show RgbIndicator
+import .utils.overload_led show OverloadLed
+import .utils.pan_led show PanLed
+import .tasks.cpu_monitor show CpuMonitor
+import .tasks.potentiometer_manager show PotentiometerManager
+import .tasks.gesture_manager show GestureManager
 import .utils.env show DEBUG
 
-// ========================================================================
-// Constants
-// ========================================================================
+// --- Constants ---
 DEVICE-NAME ::= "ESP32-S3"
 
 // GPIO Pins
-BUTTON-PIN    ::= 1
+CLUTCH-PIN          ::= 1
+LEFT-CLICK-PIN      ::= 12
+RIGHT-CLICK-PIN     ::= 14
+LEFT-CLICK-LED-PIN  ::= 8
+RIGHT-CLICK-LED-PIN ::= 11
+POTENTIOMETER-PIN   ::= 9
+GESTURE-PIN         ::= 38
+PAN-LED-PIN         ::= 10
+AXIS-LOCK-LED-PIN   ::= 13
+
 RED-RGB-PIN   ::= 6
 GREEN-RGB-PIN ::= 5
 BLUE-RGB-PIN  ::= 4
-SDA-PIN ::= 21 // I2C bus pins for IMU
-SCL-PIN ::= 20 // I2C bus pins for IMU
+SDA-PIN ::= 21
+SCL-PIN ::= 20
+INT-PIN ::= 7
+OVERLOAD-LED-PIN ::= 2
 
-HEARTBEAT-INTERVAL ::= Duration --ms=10
-// ========================================================================
-// Main Entry
-// ========================================================================
+// --- Main Entry ---
 main:
   if DEBUG:
     logger-init
     log.debug "Debug mode active (Wi-Fi UDP logger initialized)"
     log.info "---------  MAIN ENTRY  ----------"
 
-  exception := catch:
-    run-airmouse-app
+  run-airmouse-app
 
-  if exception:
-    log.error "FATAL EXCEPTION in main" --tags={"error": exception}
-    if DEBUG:
-      sleep --ms=500 // Allow UDP network buffer to flush to PC
-    throw exception
-
-// ========================================================================
-// App Setup & Loop
-// ========================================================================
+// --- App Setup & Loop ---
 run-airmouse-app:
   log.info "$DEVICE-NAME starting..."
 
-  log.info "Opening network..."
-  network := net.open
-  log.info "SUCCESS: Network opened! IP: $(network.address)"
-
-  log.info "Initializing RgbLed on R:$RED-RGB-PIN, G:$GREEN-RGB-PIN, B:$BLUE-RGB-PIN..."
   rgb-led := RgbLed --red=RED-RGB-PIN --green=GREEN-RGB-PIN --blue=BLUE-RGB-PIN --brightness=10
-  log.info "SUCCESS: RgbLed initialized successfully"
+  overload-led := OverloadLed --pin-num=OVERLOAD-LED-PIN
+  pan-led := PanLed --pan-pin=PAN-LED-PIN --axis-lock-pin=AXIS-LOCK-LED-PIN
 
-  log.info "Initializing and starting Wi-Fi Server..."
-  wireless-connection := start-wifi
-  log.info "SUCCESS: Wi-Fi Server startup initiated successfully"
+  cpu-monitor := CpuMonitor --led=overload-led
+  cpu-monitor.start
 
-  log.info "Starting RgbIndicator..."
+  wireless-connection := WifiServer --name=DEVICE-NAME --tx-queue-size=42
+  wireless-connection.on-command = :: |bitmask| pan-led.set-bitmask bitmask
+  wireless-connection.start
+
   rgb-indicator := RgbIndicator wireless-connection rgb-led
   rgb-indicator.start
-  log.info "SUCCESS: RgbIndicator started"
 
-  log.info "Setting up button service..."
-  button-service := ButtonService --pin-num=BUTTON-PIN --send-to=:: |val/string| wireless-connection.send val
-  button-service.start
-  log.info "SUCCESS: ButtonService started on Pin $BUTTON-PIN"
+  button-manager := ButtonManager 
+    --clutch-pin=CLUTCH-PIN
+    --left-click-pin=LEFT-CLICK-PIN
+    --right-click-pin=RIGHT-CLICK-PIN
+    --gesture-pin=GESTURE-PIN
+    --left-click-led-pin=LEFT-CLICK-LED-PIN
+    --right-click-led-pin=RIGHT-CLICK-LED-PIN
 
-  log.info "Initializing IMU on SDA=$SDA-PIN, SCL=$SCL-PIN..."
-  imu-instance := Imu --sda=SDA-PIN --scl=SCL-PIN
-  imu-instance.start
 
-  start-main-heartbeat
-    --send-to=:: |val/string| wireless-connection.send "$val\n"
-    --interval=HEARTBEAT-INTERVAL
+  potentiometer-manager := PotentiometerManager --pin-num=POTENTIOMETER-PIN
+  potentiometer-manager.start
 
-// ========================================================================
-// Helper Services
-// ========================================================================
-start-wifi -> WifiServer:
-  server := WifiServer 
-    --name=DEVICE-NAME 
-    --tx-queue-size=42
+  imu := Imu --sda=SDA-PIN --scl=SCL-PIN --int-pin=INT-PIN
+  imu.start
 
-  server.start
-  return server
+  gesture-manager := GestureManager
+    --imu=imu
+    --rgb-led=rgb-led
+    --rgb-indicator=rgb-indicator
+  gesture-manager.start
 
-start-main-heartbeat --send-to/Lambda --interval/Duration -> none:
-  counter := 0
-  heartbeat-service := Heartbeat
-    --send-to=send-to
-    --generator=::
-      uptime-ms := Time.monotonic-us / 1000
-      "HB:$(counter++):$uptime-ms"
-    --interval=interval
-  heartbeat-service.start
-  log.info "SUCCESS: Heartbeat started"
 
-// ========================================================================
-// Diagnostics
-// ========================================================================
-run-color-test:
-  log.info "Starting color diagnostic test loop (switches every 2 seconds)..."
-  rgb-led := RgbLed --red=RED-RGB-PIN --green=GREEN-RGB-PIN --blue=BLUE-RGB-PIN --brightness=100
-  while true:
-    log.info "Setting RED"
-    rgb-led.set-color 255 0 0
-    sleep --ms=2000
-
-    log.info "Setting GREEN"
-    rgb-led.set-color 0 255 0
-    sleep --ms=2000
-
-    log.info "Setting BLUE"
-    rgb-led.set-color 0 0 255
-    sleep --ms=2000
-
-    log.info "Setting ORANGE"
-    rgb-led.set-color 255 128 0
-    sleep --ms=2000
+  imu-pipeline := ImuPipeline 
+    --imu=imu 
+    --cpu-monitor=cpu-monitor
+    --send-to=:: |val/ByteArray| wireless-connection.send-bytes val
+  imu-pipeline.start

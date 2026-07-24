@@ -1,0 +1,235 @@
+"""
+Centralized Configuration & Tuning Constants for Air Mouse CLI Client.
+
+Edit any filter, deadzone, sensitivity, acceleration, or hardware parameter here.
+"""
+
+# ==============================================================================
+# 1. HARDWARE SENSOR CONSTANTS
+# ==============================================================================
+# Scale factor converting raw LSM6DSOX Gyro LSB to rad/s (±500 dps full scale).
+# Fixed sensor property.
+GYRO_SCALE_RAD_PER_SEC = 0.000305432619
+
+# Scale factor converting raw LSM6DSOX Accel LSB to g (±4g full scale).
+# Fixed sensor property.
+ACCEL_SCALE_G = 0.000122
+
+# Maximum raw potentiometer value received from the ESP32.
+# ESP32 computes: int(adc.get() * 4095) where adc.get() returns voltage in volts (0-3.3V).
+# Theoretical max = 3 * 4095 ≈ 12800. Override via --pot-max if hardware differs.
+DEFAULT_POT_MAX = 12800
+
+
+
+# ==============================================================================
+# 2. BASE SENSITIVITY & DEADZONE
+# ==============================================================================
+# Base mouse sensitivity multiplier when physical potentiometer knob is at 50%.
+# Range: 1.0 to 50.0 (Default: 30.0)
+DEFAULT_BASE_SENSITIVITY = 50.0
+
+# Controls how wide the sensitivity range is across the full potentiometer rotation.
+# The sensitivity curve is: base * 2^(cubic_position * pot_sens_range)
+# Higher = wider spread between min and max sensitivity.
+# At 50% pot the result is always base_sensitivity regardless of this value.
+# Range: 0.5 to 4.0 (Default: 2.0 → pot goes base÷4 to base×4)
+DEFAULT_POT_SENS_RANGE = 3.5
+
+# Minimum angular velocity (rad/s) required to initiate pointer movement.
+# Eliminates resting hand tremors; higher values add start-motion resistance.
+# Range: 0.00 to 0.05 rad/s (Default: 0.015)
+DEFAULT_DEADZONE_THRESHOLD = 0.0005
+
+
+# ==============================================================================
+# 3. ACTIVE MODE 1-EURO FILTER
+# ==============================================================================
+# Minimum cutoff frequency (Hz) for 1-Euro filter during active tracking.
+# Lower = smoother tracking with slight latency; Higher = maximum responsiveness.
+# Range: 0.5 to 10.0 Hz (Default: 3.0)
+DEFAULT_MIN_CUTOFF_FREQUENCY = 4.0
+
+# Speed coefficient (beta) for 1-Euro filter.
+# Controls cutoff frequency scaling with motion speed to eliminate lag during fast moves.
+# Range: 0.0 to 1.0 (Default: 0.5)
+DEFAULT_SPEED_COEFFICIENT = 0.1
+
+# Cutoff frequency (Hz) for velocity derivative estimation in 1-Euro filter.
+# Range: 1.0 to 10.0 Hz (Default: 6.0)
+DEFAULT_DERIVATIVE_CUTOFF = 6.0
+
+# Speed threshold (rad/s) below which active mode low-speed slowdown applies.
+# 0.0 = disabled (linear tracking at low speeds); >0.0 = smooth low-speed dampening.
+# Range: 0.0 to 0.5 rad/s (Default: 0.15)
+DEFAULT_ACTIVE_SLOWDOWN_SPEED = 0.15
+
+# Exponential dampening factor on slow precision micro-movements in active mode.
+# Range: 1.0 to 2.0 (Default: 1.15)
+DEFAULT_ACTIVE_SLOWDOWN_EXP = 1.01
+
+
+
+# ==============================================================================
+# 4. REPOSITION & SLOWDOWN MODE (Clutch Released / Click Drag)
+# ==============================================================================
+# Sensitivity multiplier applied when repositioning (clutch off).
+# 0.0 = hard clutch (zero cursor movement); >0.0 = soft clutch.
+# Range: 0.0 to 0.5 (Default: 0.2)
+DEFAULT_REPOSITION_SENS_FACTOR = 0.27
+
+# 1-Euro filter minimum cutoff frequency (Hz) during repositioning.
+# Range: 1.0 to 5.0 Hz (Default: 2.5)
+DEFAULT_REPOSITION_MIN_CUTOFF = 2.5
+
+# Gyro deadzone threshold (rad/s) during repositioning.
+# Range: 0.01 to 0.10 rad/s (Default: 0.03)
+DEFAULT_REPOSITION_DEADZONE = 0.03
+
+# Speed threshold (rad/s) below which reposition slowdown curve applies.
+# Range: 0.0 to 1.0 rad/s (Default: 0.3)
+DEFAULT_REPOSITION_SLOWDOWN_SPEED = 0.3
+
+# Exponential dampening factor on small reposition hand nudges.
+# Range: 1.0 to 2.0 (Default: 1.35)
+DEFAULT_REPOSITION_SLOWDOWN_EXP = 1.35
+
+
+# ==============================================================================
+# 5. ACCELERATION CURVE
+# ==============================================================================
+# Acceleration factor applied during rapid wrist flicks.
+# 0.0 = linear 1:1 mapping; >0.0 = dynamic acceleration boost.
+# Range: 0.0 to 1.0 (Default: 0.25)
+DEFAULT_ACCEL_FACTOR = 0.12
+
+# Power exponent for fast move acceleration curve.
+# Range: 1.0 to 2.0 (Default: 1.12)
+DEFAULT_ACCEL_EXPONENT = 1.1
+
+# Speed threshold (rad/s) required to engage acceleration boost.
+# Range: 0.05 to 0.5 rad/s (Default: 0.4)
+DEFAULT_ACCEL_THRESHOLD = 0.4
+
+
+# ==============================================================================
+# 6. DYNAMIC CLICK SLOWDOWN (Left / Right Click Drag)
+# ==============================================================================
+# Enable dynamic time-decaying slowdown during left or right click holds.
+# Expected: True / False (Default: True)
+DEFAULT_CLICK_SLOWDOWN_ENABLED = True
+
+# Initial sensitivity multiplier at the instant of button down (t=0ms).
+# Stronger than clutch slowdown to prevent cursor jump on click.
+# Range: 0.0 to 0.5 (Default: 0.0)
+DEFAULT_CLICK_INITIAL_FACTOR = 0.0
+
+# Duration in seconds for recovery back to 100% active speed.
+# Range: 0.1 to 1.5 s (Default: 0.7 s = 700ms)
+DEFAULT_CLICK_SLOWDOWN_DURATION = 1.0
+
+# Exponent controlling recovery curve linearity (1.0 = linear, <1.0 = fast start, >1.0 = slow start).
+# Range: 0.2 to 3.0 (Default: 1.0)
+DEFAULT_CLICK_SLOWDOWN_EXPONENT = 0.6
+
+
+# ==============================================================================
+# 7. SCROLL & PAN MODE (Main Clutch Button Held + Wrist Motion)
+# ==============================================================================
+# Enable scroll & pan mode when holding main clutch button.
+# Expected: True / False (Default: True)
+DEFAULT_SCROLL_MODE_ENABLED = True
+
+# Scroll & Pan sensitivity multipliers converting gyro rates to wheel scroll steps.
+# Range: 0.1 to 10.0 (Default: 1.0)
+DEFAULT_SCROLL_SENSITIVITY = 2.0
+DEFAULT_PAN_SENSITIVITY_X = 2.0
+DEFAULT_PAN_SENSITIVITY_Y = 2.0
+
+# Scroll deadzone threshold (rad/s) to prevent unwanted scrolling during tiny hand tremors.
+# Range: 0.005 to 0.05 rad/s (Default: 0.02)
+DEFAULT_SCROLL_DEADZONE = 0.02
+
+# Invert vertical scroll direction.
+# True = Inverted vertical scrolling (wrist up scrolls down); False = Normal vertical scrolling.
+# Expected: True / False (Default: True)
+DEFAULT_INVERT_VERTICAL_SCROLL = True
+
+# Lock scrolling to a single dominant axis (vertical or horizontal) at a time.
+# Prevents diagonal jitter and unwanted horizontal scrolling while swiping vertically.
+# Expected: True / False (Default: True)
+DEFAULT_SCROLL_AXIS_LOCK = True
+
+# Minimum accumulated translated scroll distance before locking to an axis (vertical or horizontal).
+# Prevents accidental axis lock from tiny initial hand jitters.
+# Range: 0.01 to 1.0 steps (Default: 0.05)
+DEFAULT_PAN_AXIS_LOCK_THRESHOLD = 2.0
+
+# Pan mode activation hold duration in seconds (must hold clutch relatively still for this duration).
+# Range: 0.1 to 2.0 s (Default: 0.5 s = 500ms)
+DEFAULT_PAN_ACTIVATION_DELAY = 0.15
+
+# Max motion speed (rad/s) allowed during the hold delay to be considered "relatively still".
+# Range: 0.02 to 0.5 rad/s (Default: 0.15)
+DEFAULT_PAN_STILLNESS_THRESHOLD = 0.2
+
+
+
+
+# ==============================================================================
+# 8. POST-PAN RELEASE SLOWDOWN (Clutch Button Release Decay)
+# ==============================================================================
+# Enable transient slowdown upon releasing main clutch / pan button for smooth hand reset.
+# Expected: True / False (Default: True)
+DEFAULT_POST_PAN_SLOWDOWN_ENABLED = True
+
+
+# Initial sensitivity multiplier when gesture button is released (t=0ms).
+# Range: 0.1 to 1.0 (Default: 0.5)
+DEFAULT_POST_PAN_INITIAL_FACTOR = 0.5
+
+# Duration in seconds for recovery back to 100% active speed.
+# Range: 0.2 to 1.5 s (Default: 0.6 s = 600ms)
+DEFAULT_POST_PAN_SLOWDOWN_DURATION = 1.2
+
+# Exponent controlling recovery curve linearity (1.0 = linear, <1.0 = fast start, >1.0 = slow start).
+# Range: 0.2 to 3.0 (Default: 1.0)
+DEFAULT_POST_PAN_SLOWDOWN_EXPONENT = 0.7
+
+
+
+# ==============================================================================
+# 9. HARDWARE & CLUTCH LOGIC
+# ==============================================================================
+
+# Invert clutch logic.
+# True = mouse active by default (holding clutch pauses); False = paused by default.
+# Expected: True / False (Default: True)
+DEFAULT_INVERT_CLUTCH = True
+
+
+# ==============================================================================
+# 9. ORIENTATION STABILITY & MADGWICK FILTER
+# ==============================================================================
+# Maximum g-force deviation from 1.0g allowed for accelerometer gravity alignment.
+# Rejects linear acceleration during fast movements to prevent tilt drift.
+# Range: 0.05 to 0.40 g (Default: 0.1)
+DEFAULT_ACCEL_REJECTION_THRESHOLD = 0.1
+
+# Maximum roll angle clamp (degrees) for 3D coordinate transformation to screen.
+# Range: 45.0 to 85.0 deg (Default: 75.0)
+DEFAULT_MAX_ROLL_DEGREES = 75.0
+
+# Madgwick filter beta (gradient descent step size).
+# Controls how aggressively the accelerometer corrects the gyro orientation estimate.
+# Higher = faster correction but more noise susceptibility; Lower = smoother but slower.
+# Range: 0.01 to 0.5 (Default: 0.1)
+DEFAULT_MADGWICK_BETA = 0.1
+
+# Scales how much the Madgwick beta is reduced as sensitivity (potentiometer) increases.
+# At high sensitivity the gyro contribution dominates; this reduces accel correction
+# proportionally so the two scale together instead of diverging.
+# 0.0 = beta is constant regardless of pot; 1.0 = beta reaches 0 at maximum pot.
+# Range: 0.0 to 1.0 (Default: 0.0)
+DEFAULT_MADGWICK_BETA_SENS_SCALE = 0.0
+

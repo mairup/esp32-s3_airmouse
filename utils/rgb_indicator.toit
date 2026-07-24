@@ -1,8 +1,14 @@
+import log
 import .rgb_led show RgbLed
+import ..wifi_server show WifiServer
 
 class RgbIndicator:
   led /RgbLed
-  server /any
+  server /WifiServer
+
+  last-r_ := -1
+  last-g_ := -1
+  last-b_ := -1
 
   run-thread /Task? := null
 
@@ -10,7 +16,14 @@ class RgbIndicator:
 
   start -> none:
     if run-thread: return
-    run-thread = task:: run_
+    log.info "Starting RgbIndicator..."
+    error := catch:
+      run-thread = task:: run_
+    if error:
+      log.error "Failed to start RgbIndicator: $error"
+      throw error
+    else:
+      log.info "SUCCESS: RgbIndicator started"
 
   stop -> none:
     if run-thread:
@@ -18,35 +31,35 @@ class RgbIndicator:
       run-thread = null
       catch: led.set-color 0 0 0
 
+  force-update -> none:
+    last-r_ = -1
+    last-g_ = -1
+    last-b_ = -1
+
   run_ -> none:
-    last-r := -1
-    last-g := -1
-    last-b := -1
-
     while true:
-      state := server.state
-      
-      // Determine target colors
-      r := 0
-      g := 0
-      b := 0
-      
-      if state == 0: // STATE-STOPPED
-        r = 0; g = 0; b = 0
-      else if state == 1: // STATE-STARTING
-        r = 255; g = 128; b = 0 // Orange
-      else if state == 2: // STATE-ADVERTISING / LISTENING
-        r = 0; g = 0; b = 255 // Solid Blue
-      else if state == 3: // STATE-CONNECTED
-        r = 0; g = 255; b = 0 // Green
-      else if state == 4: // STATE-ERROR
-        r = 255; g = 0; b = 0 // Red
+      color := get-rgb-color-for-state_ server.state
+      r := color[0]
+      g := color[1]
+      b := color[2]
 
-      // Only write to physical PWM registers if color index actually changes
-      if r != last-r or g != last-g or b != last-b:
+      if r != last-r_ or g != last-g_ or b != last-b_:
         led.set-color r g b
-        last-r = r
-        last-g = g
-        last-b = b
+        last-r_ = r
+        last-g_ = g
+        last-b_ = b
 
-      sleep --ms=10
+      sleep --ms=50
+
+  get-rgb-color-for-state_ state/int -> List:
+    if state == WifiServer.STATE-STARTING:
+      return [255, 128, 0]
+    else if state == WifiServer.STATE-ADVERTISING:
+      return [0, 0, 255]
+    else if state == WifiServer.STATE-CONNECTED:
+      return [0, 255, 0]
+    else if state == WifiServer.STATE-ERROR:
+      return [255, 0, 0]
+    return [0, 0, 0]
+
+
