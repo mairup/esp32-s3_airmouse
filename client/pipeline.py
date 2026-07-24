@@ -18,9 +18,7 @@ try:
         DEFAULT_ACTIVE_SLOWDOWN_SPEED,
         DEFAULT_ACTIVE_SLOWDOWN_EXP,
         DEFAULT_CLICK_SLOWDOWN_ENABLED,
-        DEFAULT_CLICK_SLOWDOWN_ENABLED,
         DEFAULT_CLICK_INITIAL_FACTOR,
-        DEFAULT_CLICK_TARGET_FACTOR,
         DEFAULT_CLICK_SLOWDOWN_DURATION,
         DEFAULT_CLICK_SLOWDOWN_EXPONENT,
         DEFAULT_SCROLL_MODE_ENABLED,
@@ -71,7 +69,6 @@ except ImportError:
         DEFAULT_ACTIVE_SLOWDOWN_EXP,
         DEFAULT_CLICK_SLOWDOWN_ENABLED,
         DEFAULT_CLICK_INITIAL_FACTOR,
-        DEFAULT_CLICK_TARGET_FACTOR,
         DEFAULT_CLICK_SLOWDOWN_DURATION,
         DEFAULT_CLICK_SLOWDOWN_EXPONENT,
         DEFAULT_SCROLL_MODE_ENABLED,
@@ -116,7 +113,6 @@ class AirMousePipeline:
         active_slowdown_exp=DEFAULT_ACTIVE_SLOWDOWN_EXP,
         click_slowdown_enabled=DEFAULT_CLICK_SLOWDOWN_ENABLED,
         click_initial_factor=DEFAULT_CLICK_INITIAL_FACTOR,
-        click_target_factor=DEFAULT_CLICK_TARGET_FACTOR,
         click_duration=DEFAULT_CLICK_SLOWDOWN_DURATION,
         click_exponent=DEFAULT_CLICK_SLOWDOWN_EXPONENT,
         scroll_mode_enabled=DEFAULT_SCROLL_MODE_ENABLED,
@@ -156,7 +152,7 @@ class AirMousePipeline:
         self.click_slowdown_enabled = click_slowdown_enabled
         self.click_slowdown = StateTransitionSlowdown(
             initial_factor=click_initial_factor,
-            target_factor=click_target_factor,
+            target_factor=1.0,
             duration_seconds=click_duration,
             exponent=click_exponent
         )

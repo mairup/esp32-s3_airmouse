@@ -19,7 +19,6 @@ try:
         DEFAULT_ACTIVE_SLOWDOWN_EXP,
         DEFAULT_CLICK_SLOWDOWN_ENABLED,
         DEFAULT_CLICK_INITIAL_FACTOR,
-        DEFAULT_CLICK_TARGET_FACTOR,
         DEFAULT_CLICK_SLOWDOWN_DURATION,
         DEFAULT_CLICK_SLOWDOWN_EXPONENT,
         DEFAULT_SCROLL_MODE_ENABLED,
@@ -62,7 +61,6 @@ except ImportError:
         DEFAULT_ACTIVE_SLOWDOWN_EXP,
         DEFAULT_CLICK_SLOWDOWN_ENABLED,
         DEFAULT_CLICK_INITIAL_FACTOR,
-        DEFAULT_CLICK_TARGET_FACTOR,
         DEFAULT_CLICK_SLOWDOWN_DURATION,
         DEFAULT_CLICK_SLOWDOWN_EXPONENT,
         DEFAULT_SCROLL_MODE_ENABLED,
@@ -172,7 +170,6 @@ def parse_command_line_arguments():
 
     # Dynamic click slowdown settings
     parser.add_argument("--click-slowdown-init", type=float, default=DEFAULT_CLICK_INITIAL_FACTOR, help=f"Initial click sensitivity multiplier at t=0ms (default: {DEFAULT_CLICK_INITIAL_FACTOR})")
-    parser.add_argument("--click-slowdown-target", type=float, default=DEFAULT_CLICK_TARGET_FACTOR, help=f"Target click sensitivity multiplier cap (default: {DEFAULT_CLICK_TARGET_FACTOR})")
     parser.add_argument("--click-slowdown-duration", type=float, default=DEFAULT_CLICK_SLOWDOWN_DURATION, help=f"Click slowdown recovery duration in seconds (default: {DEFAULT_CLICK_SLOWDOWN_DURATION})")
     parser.add_argument("--click-slowdown-exp", type=float, default=DEFAULT_CLICK_SLOWDOWN_EXPONENT, help=f"Click slowdown recovery curve exponent linearity (default: {DEFAULT_CLICK_SLOWDOWN_EXPONENT})")
     parser.add_argument("--no-click-slowdown", dest="click_slowdown_enabled", action="store_false", default=DEFAULT_CLICK_SLOWDOWN_ENABLED, help="Disable dynamic click slowdown during click holds")
@@ -345,7 +342,6 @@ def run_air_mouse_cli():
         active_slowdown_exp=arguments.active_slowdown_exp,
         click_slowdown_enabled=arguments.click_slowdown_enabled,
         click_initial_factor=arguments.click_slowdown_init,
-        click_target_factor=arguments.click_slowdown_target,
         click_duration=arguments.click_slowdown_duration,
         click_exponent=arguments.click_slowdown_exp,
         scroll_mode_enabled=arguments.scroll_mode_enabled,

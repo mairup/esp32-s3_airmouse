@@ -27,14 +27,14 @@ DEFAULT_POT_MAX = 12800
 # ==============================================================================
 # Base mouse sensitivity multiplier when physical potentiometer knob is at 50%.
 # Range: 1.0 to 50.0 (Default: 30.0)
-DEFAULT_BASE_SENSITIVITY = 30.0
+DEFAULT_BASE_SENSITIVITY = 50.0
 
 # Controls how wide the sensitivity range is across the full potentiometer rotation.
 # The sensitivity curve is: base * 2^(cubic_position * pot_sens_range)
 # Higher = wider spread between min and max sensitivity.
 # At 50% pot the result is always base_sensitivity regardless of this value.
 # Range: 0.5 to 4.0 (Default: 2.0 → pot goes base÷4 to base×4)
-DEFAULT_POT_SENS_RANGE = 2.0
+DEFAULT_POT_SENS_RANGE = 3.5
 
 # Minimum angular velocity (rad/s) required to initiate pointer movement.
 # Eliminates resting hand tremors; higher values add start-motion resistance.
@@ -101,11 +101,11 @@ DEFAULT_REPOSITION_SLOWDOWN_EXP = 1.35
 # Acceleration factor applied during rapid wrist flicks.
 # 0.0 = linear 1:1 mapping; >0.0 = dynamic acceleration boost.
 # Range: 0.0 to 1.0 (Default: 0.25)
-DEFAULT_ACCEL_FACTOR = 0.15
+DEFAULT_ACCEL_FACTOR = 0.12
 
 # Power exponent for fast move acceleration curve.
 # Range: 1.0 to 2.0 (Default: 1.12)
-DEFAULT_ACCEL_EXPONENT = 1.15
+DEFAULT_ACCEL_EXPONENT = 1.1
 
 # Speed threshold (rad/s) required to engage acceleration boost.
 # Range: 0.05 to 0.5 rad/s (Default: 0.4)
@@ -121,20 +121,16 @@ DEFAULT_CLICK_SLOWDOWN_ENABLED = True
 
 # Initial sensitivity multiplier at the instant of button down (t=0ms).
 # Stronger than clutch slowdown to prevent cursor jump on click.
-# Range: 0.0 to 0.5 (Default: 0.10)
-DEFAULT_CLICK_INITIAL_FACTOR = 0.1
+# Range: 0.0 to 0.5 (Default: 0.0)
+DEFAULT_CLICK_INITIAL_FACTOR = 0.0
 
-# Maximum target sensitivity multiplier cap during sustained click drags.
-# Range: 0.80 to 1.0 (Default: 0.95)
-DEFAULT_CLICK_TARGET_FACTOR = 0.95
-
-# Duration in seconds for recovery back to target speed cap.
-# Range: 0.1 to 1.5 s (Default: 0.4 s = 400ms)
+# Duration in seconds for recovery back to 100% active speed.
+# Range: 0.1 to 1.5 s (Default: 0.7 s = 700ms)
 DEFAULT_CLICK_SLOWDOWN_DURATION = 0.7
 
 # Exponent controlling recovery curve linearity (1.0 = linear, <1.0 = fast start, >1.0 = slow start).
 # Range: 0.2 to 3.0 (Default: 1.0)
-DEFAULT_CLICK_SLOWDOWN_EXPONENT = 0.4
+DEFAULT_CLICK_SLOWDOWN_EXPONENT = 0.7
 
 
 # ==============================================================================
