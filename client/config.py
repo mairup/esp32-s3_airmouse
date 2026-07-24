@@ -27,7 +27,7 @@ DEFAULT_POT_MAX = 12800
 # ==============================================================================
 # Base mouse sensitivity multiplier when physical potentiometer knob is at 50%.
 # Range: 1.0 to 50.0 (Default: 10.0)
-DEFAULT_BASE_SENSITIVITY = 25.0
+DEFAULT_BASE_SENSITIVITY = 30.0
 
 # Minimum angular velocity (rad/s) required to initiate pointer movement.
 # Eliminates resting hand tremors; higher values add start-motion resistance.
@@ -123,11 +123,11 @@ DEFAULT_CLICK_TARGET_FACTOR = 0.95
 
 # Duration in seconds for recovery back to target speed cap.
 # Range: 0.1 to 1.5 s (Default: 0.4 s = 400ms)
-DEFAULT_CLICK_SLOWDOWN_DURATION = 0.6
+DEFAULT_CLICK_SLOWDOWN_DURATION = 0.7
 
 # Exponent controlling recovery curve linearity (1.0 = linear, <1.0 = fast start, >1.0 = slow start).
 # Range: 0.2 to 3.0 (Default: 1.0)
-DEFAULT_CLICK_SLOWDOWN_EXPONENT = 0.5
+DEFAULT_CLICK_SLOWDOWN_EXPONENT = 0.4
 
 
 # ==============================================================================
@@ -206,4 +206,17 @@ DEFAULT_ACCEL_REJECTION_THRESHOLD = 0.1
 # Maximum roll angle clamp (degrees) for 3D coordinate transformation to screen.
 # Range: 45.0 to 85.0 deg (Default: 75.0)
 DEFAULT_MAX_ROLL_DEGREES = 75.0
+
+# Madgwick filter beta (gradient descent step size).
+# Controls how aggressively the accelerometer corrects the gyro orientation estimate.
+# Higher = faster correction but more noise susceptibility; Lower = smoother but slower.
+# Range: 0.01 to 0.5 (Default: 0.1)
+DEFAULT_MADGWICK_BETA = 0.1
+
+# Scales how much the Madgwick beta is reduced as sensitivity (potentiometer) increases.
+# At high sensitivity the gyro contribution dominates; this reduces accel correction
+# proportionally so the two scale together instead of diverging.
+# 0.0 = beta is constant regardless of pot; 1.0 = beta reaches 0 at maximum pot.
+# Range: 0.0 to 1.0 (Default: 0.0)
+DEFAULT_MADGWICK_BETA_SENS_SCALE = 0.0
 

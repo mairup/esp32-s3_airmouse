@@ -47,6 +47,8 @@ try:
         DEFAULT_ACCEL_REJECTION_THRESHOLD,
         DEFAULT_MAX_ROLL_DEGREES,
         DEFAULT_POT_MAX,
+        DEFAULT_MADGWICK_BETA,
+        DEFAULT_MADGWICK_BETA_SENS_SCALE,
     )
 except ImportError:
     from filters import (
@@ -95,6 +97,8 @@ except ImportError:
         DEFAULT_ACCEL_REJECTION_THRESHOLD,
         DEFAULT_MAX_ROLL_DEGREES,
         DEFAULT_POT_MAX,
+        DEFAULT_MADGWICK_BETA,
+        DEFAULT_MADGWICK_BETA_SENS_SCALE,
     )
 
 
@@ -136,7 +140,9 @@ class AirMousePipeline:
         reposition_slowdown_exp=DEFAULT_REPOSITION_SLOWDOWN_EXP,
         accel_rejection_threshold=DEFAULT_ACCEL_REJECTION_THRESHOLD,
         max_roll_degrees=DEFAULT_MAX_ROLL_DEGREES,
-        pot_max=DEFAULT_POT_MAX
+        pot_max=DEFAULT_POT_MAX,
+        madgwick_beta=DEFAULT_MADGWICK_BETA,
+        madgwick_beta_sens_scale=DEFAULT_MADGWICK_BETA_SENS_SCALE
     ):
         self.base_sensitivity = sensitivity
         self.sensitivity = sensitivity
@@ -207,10 +213,11 @@ class AirMousePipeline:
             derivative_cutoff_frequency=derivative_cutoff_frequency
         )
         self.madgwick_filter = MadgwickFilter(
-            beta=0.1,
+            beta=madgwick_beta,
             accel_rejection_threshold=accel_rejection_threshold,
             max_roll_degrees=max_roll_degrees
         )
+        self.madgwick_beta_sens_scale = madgwick_beta_sens_scale
         self.previous_clutch_active = None
         self.subpixel_accumulator_x = 0.0
         self.subpixel_accumulator_y = 0.0
@@ -244,10 +251,12 @@ class AirMousePipeline:
             gyroscope_uncalibrated, timestamp, is_clutch_active, is_slowdown_mode
         )
 
+        effective_madgwick_beta = self.madgwick_filter.beta * (1.0 - self.madgwick_beta_sens_scale * self.potentiometer_ratio)
         roll_radians = self.madgwick_filter.update(
             gyroscope[0], gyroscope[1], gyroscope[2],
             accelerometer[0], accelerometer[1], accelerometer[2],
-            delta_time
+            delta_time,
+            beta_override=effective_madgwick_beta
         )
         screen_pitch_rate, screen_yaw_rate = self._project_gyroscope_rates(gyroscope[0], gyroscope[2], roll_radians)
         is_pan_active = self._update_pan_activation_state(raw_clutch_pressed, timestamp, screen_pitch_rate, screen_yaw_rate)

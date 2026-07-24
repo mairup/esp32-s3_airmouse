@@ -110,15 +110,21 @@ class MadgwickFilter:
 
         self.quaternion = [q1, q2, q3, q4]
 
-    def update(self, gyroscope_x, gyroscope_y, gyroscope_z, accelerometer_x, accelerometer_y, accelerometer_z, delta_time):
+    def update(self, gyroscope_x, gyroscope_y, gyroscope_z, accelerometer_x, accelerometer_y, accelerometer_z, delta_time, beta_override=None):
         q1, q2, q3, q4 = self.quaternion
 
         normalized_accel, accel_norm = self._normalize_vector3(accelerometer_x, accelerometer_y, accelerometer_z)
         if accel_norm == 0.0:
             return self.calculate_roll_radians()
 
-        effective_beta = self._compute_effective_beta(accel_norm)
+        if beta_override is None:
+            effective_beta = self._compute_effective_beta(accel_norm)
+        else:
+            # Still apply accel rejection, but against the caller-provided (pot-scaled) beta
+            rejection_scale = 1.0 - (abs(accel_norm - 1.0) / max(self.accel_rejection_threshold, 1e-9))
+            effective_beta = max(0.0, beta_override * rejection_scale)
         ax, ay, az = normalized_accel
+
 
         _2q1 = 2.0 * q1
         _2q2 = 2.0 * q2

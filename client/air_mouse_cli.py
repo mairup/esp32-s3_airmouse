@@ -46,6 +46,8 @@ try:
         DEFAULT_ACCEL_REJECTION_THRESHOLD,
         DEFAULT_MAX_ROLL_DEGREES,
         DEFAULT_POT_MAX,
+        DEFAULT_MADGWICK_BETA,
+        DEFAULT_MADGWICK_BETA_SENS_SCALE,
     )
 except ImportError:
     from pipeline import AirMousePipeline
@@ -86,6 +88,8 @@ except ImportError:
         DEFAULT_ACCEL_REJECTION_THRESHOLD,
         DEFAULT_MAX_ROLL_DEGREES,
         DEFAULT_POT_MAX,
+        DEFAULT_MADGWICK_BETA,
+        DEFAULT_MADGWICK_BETA_SENS_SCALE,
     )
 
 
@@ -204,7 +208,9 @@ def parse_command_line_arguments():
     # Orientation & Stability settings
     parser.add_argument("--accel-rejection-thresh", type=float, default=DEFAULT_ACCEL_REJECTION_THRESHOLD, help=f"Max g-force deviation before ignoring accel gravity correction (default: {DEFAULT_ACCEL_REJECTION_THRESHOLD})")
     parser.add_argument("--max-roll-deg", type=float, default=DEFAULT_MAX_ROLL_DEGREES, help=f"Max roll angle clamp in degrees (default: {DEFAULT_MAX_ROLL_DEGREES})")
-    
+    parser.add_argument("--madgwick-beta", type=float, default=DEFAULT_MADGWICK_BETA, help=f"Madgwick filter accel correction weight (default: {DEFAULT_MADGWICK_BETA})")
+    parser.add_argument("--madgwick-beta-sens-scale", type=float, default=DEFAULT_MADGWICK_BETA_SENS_SCALE, help=f"Reduce accel correction at high sensitivity (0=constant, 1=zero at max pot) (default: {DEFAULT_MADGWICK_BETA_SENS_SCALE})")
+
     # Hardware clutch logic
     parser.add_argument("--normal-clutch", dest="invert_clutch", action="store_false", default=DEFAULT_INVERT_CLUTCH, help="Normal clutch logic (hold button to activate mouse)")
     parser.add_argument("--pot-max", type=int, default=DEFAULT_POT_MAX, help=f"Raw potentiometer maximum value from hardware (default: {DEFAULT_POT_MAX})")
@@ -363,7 +369,9 @@ def run_air_mouse_cli():
         reposition_slowdown_exp=arguments.reposition_slowdown_exp,
         accel_rejection_threshold=arguments.accel_rejection_thresh,
         max_roll_degrees=arguments.max_roll_deg,
-        pot_max=arguments.pot_max
+        pot_max=arguments.pot_max,
+        madgwick_beta=arguments.madgwick_beta,
+        madgwick_beta_sens_scale=arguments.madgwick_beta_sens_scale
     )
 
     print(f"[AirMouse CLI] Target: {arguments.ip_address}:{arguments.port} | Virtual Mouse Active (Press Ctrl+C to exit)\n")
