@@ -162,8 +162,14 @@ DEFAULT_SCROLL_AXIS_LOCK = True
 
 # Minimum physical wrist angle (radians) before locking pan axis (vertical or horizontal).
 # Measured directly from raw sensor displacement, independent of OS sensitivity settings.
-# Range: 0.005 to 0.10 rad (Default: 0.02 rad ≈ 1.1 degrees)
-DEFAULT_PAN_AXIS_LOCK_THRESHOLD = 0.02
+# Range: 0.005 to 0.50 rad (Default: 0.05 rad ≈ 2.8 degrees)
+DEFAULT_PAN_AXIS_LOCK_THRESHOLD = 0.05
+
+# Sliding time window (seconds) for pan axis lock motion integration.
+# Uses a leaky signed integrator so circular motion and wiggles cancel out (+ and -)
+# and decay, requiring a clear net directional sweep away from origin.
+# Range: 0.05 to 1.0 s (Default: 0.25 s)
+DEFAULT_PAN_AXIS_LOCK_DECAY_TIME = 0.25
 
 # Pan mode activation hold duration in seconds (must hold clutch relatively still for this duration).
 # Range: 0.1 to 2.0 s (Default: 0.5 s = 500ms)

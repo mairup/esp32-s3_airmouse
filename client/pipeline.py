@@ -29,6 +29,7 @@ try:
         DEFAULT_INVERT_VERTICAL_SCROLL,
         DEFAULT_SCROLL_AXIS_LOCK,
         DEFAULT_PAN_AXIS_LOCK_THRESHOLD,
+        DEFAULT_PAN_AXIS_LOCK_DECAY_TIME,
         DEFAULT_PAN_ACTIVATION_DELAY,
         DEFAULT_PAN_STILLNESS_THRESHOLD,
         DEFAULT_POST_PAN_SLOWDOWN_ENABLED,
@@ -81,6 +82,7 @@ except ImportError:
         DEFAULT_INVERT_VERTICAL_SCROLL,
         DEFAULT_SCROLL_AXIS_LOCK,
         DEFAULT_PAN_AXIS_LOCK_THRESHOLD,
+        DEFAULT_PAN_AXIS_LOCK_DECAY_TIME,
         DEFAULT_PAN_ACTIVATION_DELAY,
         DEFAULT_PAN_STILLNESS_THRESHOLD,
         DEFAULT_POST_PAN_SLOWDOWN_ENABLED,
@@ -127,6 +129,7 @@ class AirMousePipeline:
         invert_vertical_scroll=DEFAULT_INVERT_VERTICAL_SCROLL,
         scroll_axis_lock=DEFAULT_SCROLL_AXIS_LOCK,
         pan_axis_lock_threshold=DEFAULT_PAN_AXIS_LOCK_THRESHOLD,
+        pan_axis_lock_decay_time=DEFAULT_PAN_AXIS_LOCK_DECAY_TIME,
         pan_activation_delay=DEFAULT_PAN_ACTIVATION_DELAY,
         pan_stillness_threshold=DEFAULT_PAN_STILLNESS_THRESHOLD,
         post_pan_slowdown_enabled=DEFAULT_POST_PAN_SLOWDOWN_ENABLED,
@@ -170,6 +173,7 @@ class AirMousePipeline:
         self.invert_vertical_scroll = invert_vertical_scroll
         self.scroll_axis_lock = scroll_axis_lock
         self.pan_axis_lock_threshold = pan_axis_lock_threshold
+        self.pan_axis_lock_decay_time = pan_axis_lock_decay_time
         self.pan_activation_delay = pan_activation_delay
         self.pan_stillness_threshold = pan_stillness_threshold
         self.post_pan_slowdown_enabled = post_pan_slowdown_enabled
@@ -457,18 +461,20 @@ class AirMousePipeline:
 
         if self.scroll_axis_lock:
             if self.locked_pan_axis is None:
-                self.pan_init_accum_x += abs(yaw_rate) * delta_time
-                self.pan_init_accum_y += abs(pitch_rate) * delta_time
-                if max(self.pan_init_accum_x, self.pan_init_accum_y) >= self.pan_axis_lock_threshold:
-                    if self.pan_init_accum_y >= self.pan_init_accum_x:
+                decay = math.exp(-delta_time / max(self.pan_axis_lock_decay_time, 1e-4)) if self.pan_axis_lock_decay_time > 0.0 else 1.0
+                self.pan_init_accum_x = self.pan_init_accum_x * decay + (yaw_rate * delta_time)
+                self.pan_init_accum_y = self.pan_init_accum_y * decay + (pitch_rate * delta_time)
+
+                abs_x = abs(self.pan_init_accum_x)
+                abs_y = abs(self.pan_init_accum_y)
+                if max(abs_x, abs_y) >= self.pan_axis_lock_threshold:
+                    if abs_y >= abs_x:
                         self.locked_pan_axis = 'vertical'
-                        sign_y = 1.0 if pitch_rate >= 0.0 else -1.0
-                        self.scroll_accumulator_y = self.pan_init_accum_y * self.pan_sensitivity_y * vertical_direction * sign_y
+                        self.scroll_accumulator_y = self.pan_init_accum_y * self.pan_sensitivity_y * vertical_direction
                         scroll_delta_y = 0.0
                     else:
                         self.locked_pan_axis = 'horizontal'
-                        sign_x = 1.0 if yaw_rate >= 0.0 else -1.0
-                        self.scroll_accumulator_x = self.pan_init_accum_x * self.pan_sensitivity_x * sign_x
+                        self.scroll_accumulator_x = self.pan_init_accum_x * self.pan_sensitivity_x
                         scroll_delta_x = 0.0
 
             if self.locked_pan_axis == 'vertical':
