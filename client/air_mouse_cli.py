@@ -144,16 +144,16 @@ def send_led_command(client_socket, server_ip, server_port, led_on):
 
 def set_cursor_hand():
     try:
-        subprocess.run(["xsetroot", "-cursor_name", "hand2"], timeout=0.1,
-                       capture_output=True, check=False)
+        subprocess.Popen(["xsetroot", "-cursor_name", "hand2"],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except Exception:
         pass
 
 
 def restore_cursor():
     try:
-        subprocess.run(["xsetroot", "-cursor_name", "left_ptr"], timeout=0.1,
-                       capture_output=True, check=False)
+        subprocess.Popen(["xsetroot", "-cursor_name", "left_ptr"],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except Exception:
         pass
 

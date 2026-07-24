@@ -162,8 +162,8 @@ DEFAULT_SCROLL_AXIS_LOCK = True
 
 # Minimum accumulated translated scroll distance before locking to an axis (vertical or horizontal).
 # Prevents accidental axis lock from tiny initial hand jitters.
-# Range: 0.1 to 2.0 steps (Default: 0.5)
-DEFAULT_PAN_AXIS_LOCK_THRESHOLD = 0.5
+# Range: 0.01 to 1.0 steps (Default: 0.05)
+DEFAULT_PAN_AXIS_LOCK_THRESHOLD = 0.05
 
 # Pan mode activation hold duration in seconds (must hold clutch relatively still for this duration).
 # Range: 0.1 to 2.0 s (Default: 0.5 s = 500ms)

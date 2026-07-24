@@ -125,11 +125,11 @@ class WifiServer:
     error := catch:
       while true:
         datagram := server-socket.receive
+        last-heartbeat-time = Time.now
         data := datagram.data
         if data.size == 2 and data[0] == 0xFF:
           if on-command: on-command.call data[1]
         else:
-          last-heartbeat-time = Time.now
           register-client_ datagram.address
     if error and error != "CANCELED":
       error-latch.set error

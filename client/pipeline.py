@@ -464,10 +464,12 @@ class AirMousePipeline:
                         self.locked_pan_axis = 'vertical'
                         sign_y = 1.0 if scroll_delta_y >= 0.0 else -1.0
                         self.scroll_accumulator_y = self.pan_init_accum_y * sign_y
+                        scroll_delta_y = 0.0
                     else:
                         self.locked_pan_axis = 'horizontal'
                         sign_x = 1.0 if scroll_delta_x >= 0.0 else -1.0
                         self.scroll_accumulator_x = self.pan_init_accum_x * sign_x
+                        scroll_delta_x = 0.0
 
             if self.locked_pan_axis == 'vertical':
                 scroll_delta_x = 0.0
