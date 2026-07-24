@@ -181,6 +181,7 @@ class AirMousePipeline:
         self.clutch_hold_start_timestamp = None
         self.is_pan_mode_active = False
         self.pan_activation_failed_for_press = False
+        self.locked_pan_axis = None
         self.previous_pan_mode_active = False
         self.previous_click_held = False
         self.previous_clutch_pressed = False
@@ -304,6 +305,7 @@ class AirMousePipeline:
             self.clutch_hold_start_timestamp = None
             self.is_pan_mode_active = False
             self.pan_activation_failed_for_press = False
+            self.locked_pan_axis = None
             return False
 
         if self.pan_activation_failed_for_press:
@@ -442,10 +444,17 @@ class AirMousePipeline:
         yaw_rate = apply_deadzone_filter(screen_yaw_rate, self.scroll_deadzone)
 
         if self.scroll_axis_lock:
-            if abs(pitch_rate) >= abs(yaw_rate):
+            if self.locked_pan_axis is None:
+                if pitch_rate != 0.0 or yaw_rate != 0.0:
+                    if abs(pitch_rate) >= abs(yaw_rate):
+                        self.locked_pan_axis = 'vertical'
+                    else:
+                        self.locked_pan_axis = 'horizontal'
+
+            if self.locked_pan_axis == 'vertical':
                 yaw_rate = 0.0
                 self.scroll_accumulator_x = 0.0
-            else:
+            elif self.locked_pan_axis == 'horizontal':
                 pitch_rate = 0.0
                 self.scroll_accumulator_y = 0.0
 
