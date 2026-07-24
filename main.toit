@@ -24,7 +24,7 @@ LEFT-CLICK-LED-PIN  ::= 8
 RIGHT-CLICK-LED-PIN ::= 11
 POTENTIOMETER-PIN   ::= 9
 GESTURE-PIN         ::= 38
-PAN-LED-PIN         ::= 47
+PAN-LED-PIN         ::= 10
 
 RED-RGB-PIN   ::= 6
 GREEN-RGB-PIN ::= 5
