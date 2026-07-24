@@ -49,6 +49,7 @@ try:
         DEFAULT_POT_MAX,
         DEFAULT_MADGWICK_BETA,
         DEFAULT_MADGWICK_BETA_SENS_SCALE,
+        DEFAULT_POT_SENS_RANGE,
     )
 except ImportError:
     from filters import (
@@ -99,6 +100,7 @@ except ImportError:
         DEFAULT_POT_MAX,
         DEFAULT_MADGWICK_BETA,
         DEFAULT_MADGWICK_BETA_SENS_SCALE,
+        DEFAULT_POT_SENS_RANGE,
     )
 
 
@@ -142,7 +144,8 @@ class AirMousePipeline:
         max_roll_degrees=DEFAULT_MAX_ROLL_DEGREES,
         pot_max=DEFAULT_POT_MAX,
         madgwick_beta=DEFAULT_MADGWICK_BETA,
-        madgwick_beta_sens_scale=DEFAULT_MADGWICK_BETA_SENS_SCALE
+        madgwick_beta_sens_scale=DEFAULT_MADGWICK_BETA_SENS_SCALE,
+        pot_sens_range=DEFAULT_POT_SENS_RANGE
     ):
         self.base_sensitivity = sensitivity
         self.sensitivity = sensitivity
@@ -218,6 +221,7 @@ class AirMousePipeline:
             max_roll_degrees=max_roll_degrees
         )
         self.madgwick_beta_sens_scale = madgwick_beta_sens_scale
+        self.pot_sens_range = pot_sens_range
         self.previous_clutch_active = None
         self.subpixel_accumulator_x = 0.0
         self.subpixel_accumulator_y = 0.0
@@ -332,7 +336,7 @@ class AirMousePipeline:
 
         centered_knob_position = 2.0 * self.potentiometer_ratio - 1.0
         cubic_curve = centered_knob_position * centered_knob_position * centered_knob_position
-        exponent_scale = cubic_curve * 2.0
+        exponent_scale = cubic_curve * self.pot_sens_range
         self.sensitivity = self.base_sensitivity * (2.0 ** exponent_scale)
 
 

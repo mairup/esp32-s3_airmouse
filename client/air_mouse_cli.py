@@ -48,6 +48,7 @@ try:
         DEFAULT_POT_MAX,
         DEFAULT_MADGWICK_BETA,
         DEFAULT_MADGWICK_BETA_SENS_SCALE,
+        DEFAULT_POT_SENS_RANGE,
     )
 except ImportError:
     from pipeline import AirMousePipeline
@@ -90,6 +91,7 @@ except ImportError:
         DEFAULT_POT_MAX,
         DEFAULT_MADGWICK_BETA,
         DEFAULT_MADGWICK_BETA_SENS_SCALE,
+        DEFAULT_POT_SENS_RANGE,
     )
 
 
@@ -210,6 +212,7 @@ def parse_command_line_arguments():
     parser.add_argument("--max-roll-deg", type=float, default=DEFAULT_MAX_ROLL_DEGREES, help=f"Max roll angle clamp in degrees (default: {DEFAULT_MAX_ROLL_DEGREES})")
     parser.add_argument("--madgwick-beta", type=float, default=DEFAULT_MADGWICK_BETA, help=f"Madgwick filter accel correction weight (default: {DEFAULT_MADGWICK_BETA})")
     parser.add_argument("--madgwick-beta-sens-scale", type=float, default=DEFAULT_MADGWICK_BETA_SENS_SCALE, help=f"Reduce accel correction at high sensitivity (0=constant, 1=zero at max pot) (default: {DEFAULT_MADGWICK_BETA_SENS_SCALE})")
+    parser.add_argument("--pot-sens-range", type=float, default=DEFAULT_POT_SENS_RANGE, help=f"Sensitivity spread across pot rotation; base*2^(cubic*range) (default: {DEFAULT_POT_SENS_RANGE})")
 
     # Hardware clutch logic
     parser.add_argument("--normal-clutch", dest="invert_clutch", action="store_false", default=DEFAULT_INVERT_CLUTCH, help="Normal clutch logic (hold button to activate mouse)")
@@ -371,7 +374,8 @@ def run_air_mouse_cli():
         max_roll_degrees=arguments.max_roll_deg,
         pot_max=arguments.pot_max,
         madgwick_beta=arguments.madgwick_beta,
-        madgwick_beta_sens_scale=arguments.madgwick_beta_sens_scale
+        madgwick_beta_sens_scale=arguments.madgwick_beta_sens_scale,
+        pot_sens_range=arguments.pot_sens_range
     )
 
     print(f"[AirMouse CLI] Target: {arguments.ip_address}:{arguments.port} | Virtual Mouse Active (Press Ctrl+C to exit)\n")

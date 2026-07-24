@@ -26,8 +26,15 @@ DEFAULT_POT_MAX = 12800
 # 2. BASE SENSITIVITY & DEADZONE
 # ==============================================================================
 # Base mouse sensitivity multiplier when physical potentiometer knob is at 50%.
-# Range: 1.0 to 50.0 (Default: 10.0)
+# Range: 1.0 to 50.0 (Default: 30.0)
 DEFAULT_BASE_SENSITIVITY = 30.0
+
+# Controls how wide the sensitivity range is across the full potentiometer rotation.
+# The sensitivity curve is: base * 2^(cubic_position * pot_sens_range)
+# Higher = wider spread between min and max sensitivity.
+# At 50% pot the result is always base_sensitivity regardless of this value.
+# Range: 0.5 to 4.0 (Default: 2.0 → pot goes base÷4 to base×4)
+DEFAULT_POT_SENS_RANGE = 2.0
 
 # Minimum angular velocity (rad/s) required to initiate pointer movement.
 # Eliminates resting hand tremors; higher values add start-motion resistance.
