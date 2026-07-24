@@ -30,6 +30,7 @@ try:
         DEFAULT_SCROLL_AXIS_LOCK,
         DEFAULT_PAN_AXIS_LOCK_THRESHOLD,
         DEFAULT_PAN_AXIS_LOCK_DECAY_TIME,
+        DEFAULT_PAN_LOCK_RAMP_DURATION,
         DEFAULT_PAN_ACTIVATION_DELAY,
         DEFAULT_PAN_STILLNESS_THRESHOLD,
         DEFAULT_POST_PAN_SLOWDOWN_ENABLED,
@@ -51,6 +52,11 @@ try:
         DEFAULT_MADGWICK_BETA,
         DEFAULT_MADGWICK_BETA_SENS_SCALE,
         DEFAULT_POT_SENS_RANGE,
+        DEFAULT_SMOOTH_SCROLL_ENABLED,
+        DEFAULT_SCROLL_HI_RES_SCALE,
+        DEFAULT_SCROLL_SMOOTHING_ALPHA,
+        DEFAULT_SCROLL_INERTIA_ENABLED,
+        DEFAULT_SCROLL_INERTIA_DECAY,
     )
 except ImportError:
     from pipeline import AirMousePipeline
@@ -75,6 +81,7 @@ except ImportError:
         DEFAULT_SCROLL_AXIS_LOCK,
         DEFAULT_PAN_AXIS_LOCK_THRESHOLD,
         DEFAULT_PAN_AXIS_LOCK_DECAY_TIME,
+        DEFAULT_PAN_LOCK_RAMP_DURATION,
         DEFAULT_PAN_ACTIVATION_DELAY,
         DEFAULT_PAN_STILLNESS_THRESHOLD,
         DEFAULT_POST_PAN_SLOWDOWN_ENABLED,
@@ -96,6 +103,11 @@ except ImportError:
         DEFAULT_MADGWICK_BETA,
         DEFAULT_MADGWICK_BETA_SENS_SCALE,
         DEFAULT_POT_SENS_RANGE,
+        DEFAULT_SMOOTH_SCROLL_ENABLED,
+        DEFAULT_SCROLL_HI_RES_SCALE,
+        DEFAULT_SCROLL_SMOOTHING_ALPHA,
+        DEFAULT_SCROLL_INERTIA_ENABLED,
+        DEFAULT_SCROLL_INERTIA_DECAY,
     )
 
 
@@ -105,7 +117,11 @@ except ImportError:
 def create_virtual_mouse_device():
     return UInput(
         {
-            e.EV_REL: [e.REL_X, e.REL_Y, e.REL_WHEEL, e.REL_HWHEEL],
+            e.EV_REL: [
+                e.REL_X, e.REL_Y,
+                e.REL_WHEEL, e.REL_HWHEEL,
+                e.REL_WHEEL_HI_RES, e.REL_HWHEEL_HI_RES
+            ],
             e.EV_KEY: [e.BTN_LEFT, e.BTN_RIGHT, e.BTN_MIDDLE]
         },
         name="AirMouse-Virtual-Mouse"
@@ -119,12 +135,16 @@ def emit_relative_mouse_movement(virtual_mouse_device, movement_x, movement_y):
         virtual_mouse_device.syn()
 
 
-def emit_scroll_movement(virtual_mouse_device, scroll_x, scroll_y):
-    if scroll_y != 0:
-        virtual_mouse_device.write(e.EV_REL, e.REL_WHEEL, scroll_y)
-    if scroll_x != 0:
-        virtual_mouse_device.write(e.EV_REL, e.REL_HWHEEL, scroll_x)
-    if scroll_y != 0 or scroll_x != 0:
+def emit_scroll_movement(virtual_mouse_device, hi_res_x, hi_res_y, wheel_x=0, wheel_y=0):
+    if hi_res_y != 0:
+        virtual_mouse_device.write(e.EV_REL, e.REL_WHEEL_HI_RES, hi_res_y)
+    if hi_res_x != 0:
+        virtual_mouse_device.write(e.EV_REL, e.REL_HWHEEL_HI_RES, hi_res_x)
+    if wheel_y != 0:
+        virtual_mouse_device.write(e.EV_REL, e.REL_WHEEL, wheel_y)
+    if wheel_x != 0:
+        virtual_mouse_device.write(e.EV_REL, e.REL_HWHEEL, wheel_x)
+    if hi_res_y != 0 or hi_res_x != 0 or wheel_y != 0 or wheel_x != 0:
         virtual_mouse_device.syn()
 
 
@@ -191,8 +211,13 @@ def parse_command_line_arguments():
     parser.add_argument("--no-scroll-axis-lock", dest="scroll_axis_lock", action="store_false", default=DEFAULT_SCROLL_AXIS_LOCK, help="Disable single-axis scroll locking")
     parser.add_argument("--pan-axis-lock-thresh", type=float, default=DEFAULT_PAN_AXIS_LOCK_THRESHOLD, help=f"Minimum physical wrist angle (radians) before locking pan axis (default: {DEFAULT_PAN_AXIS_LOCK_THRESHOLD})")
     parser.add_argument("--pan-axis-lock-decay", type=float, default=DEFAULT_PAN_AXIS_LOCK_DECAY_TIME, help=f"Sliding time window (seconds) for pan axis lock motion decay (default: {DEFAULT_PAN_AXIS_LOCK_DECAY_TIME})")
+    parser.add_argument("--pan-lock-ramp", type=float, default=DEFAULT_PAN_LOCK_RAMP_DURATION, help=f"Pan axis lock soft-start ramp duration in seconds (default: {DEFAULT_PAN_LOCK_RAMP_DURATION})")
     parser.add_argument("--pan-activation-delay", type=float, default=DEFAULT_PAN_ACTIVATION_DELAY, help=f"Seconds clutch must be held still before pan activates (default: {DEFAULT_PAN_ACTIVATION_DELAY})")
     parser.add_argument("--pan-stillness-threshold", type=float, default=DEFAULT_PAN_STILLNESS_THRESHOLD, help=f"Max motion speed rad/s considered 'still' during pan activation hold (default: {DEFAULT_PAN_STILLNESS_THRESHOLD})")
+    parser.add_argument("--no-smooth-scroll", dest="smooth_scroll_enabled", action="store_false", default=DEFAULT_SMOOTH_SCROLL_ENABLED, help="Disable high-resolution subpixel smooth scrolling")
+    parser.add_argument("--scroll-alpha", type=float, default=DEFAULT_SCROLL_SMOOTHING_ALPHA, help=f"Low-pass velocity filter smoothing factor 0-1 (default: {DEFAULT_SCROLL_SMOOTHING_ALPHA})")
+    parser.add_argument("--no-scroll-inertia", dest="scroll_inertia_enabled", action="store_false", default=DEFAULT_SCROLL_INERTIA_ENABLED, help="Disable kinetic inertia gliding/coasting")
+    parser.add_argument("--scroll-inertia-decay", type=float, default=DEFAULT_SCROLL_INERTIA_DECAY, help=f"Inertia coasting decay time constant in seconds (default: {DEFAULT_SCROLL_INERTIA_DECAY})")
 
     # Post-pan release slowdown settings
     parser.add_argument("--post-pan-init", type=float, default=DEFAULT_POST_PAN_INITIAL_FACTOR, help=f"Initial sensitivity factor upon releasing pan mode (default: {DEFAULT_POST_PAN_INITIAL_FACTOR})")
@@ -365,6 +390,7 @@ def run_air_mouse_cli():
         scroll_axis_lock=arguments.scroll_axis_lock,
         pan_axis_lock_threshold=arguments.pan_axis_lock_thresh,
         pan_axis_lock_decay_time=arguments.pan_axis_lock_decay,
+        pan_lock_ramp_duration=arguments.pan_lock_ramp,
         pan_activation_delay=arguments.pan_activation_delay,
         pan_stillness_threshold=arguments.pan_stillness_threshold,
         post_pan_slowdown_enabled=arguments.post_pan_slowdown_enabled,
@@ -386,7 +412,11 @@ def run_air_mouse_cli():
         pot_max=arguments.pot_max,
         madgwick_beta=arguments.madgwick_beta,
         madgwick_beta_sens_scale=arguments.madgwick_beta_sens_scale,
-        pot_sens_range=arguments.pot_sens_range
+        pot_sens_range=arguments.pot_sens_range,
+        smooth_scroll_enabled=arguments.smooth_scroll_enabled,
+        scroll_smoothing_alpha=arguments.scroll_alpha,
+        scroll_inertia_enabled=arguments.scroll_inertia_enabled,
+        scroll_inertia_decay=arguments.scroll_inertia_decay,
     )
 
     print(f"[AirMouse CLI] Target: {arguments.ip_address}:{arguments.port} | Virtual Mouse Active (Press Ctrl+C to exit)\n")
@@ -431,7 +461,7 @@ def run_air_mouse_cli():
                 delta_time = calculate_packet_delta_time(current_time, last_packet_timestamp)
                 last_packet_timestamp = current_time
 
-                movement_x, movement_y, is_active, is_left, is_right, is_gesture, scroll_x, scroll_y, raw_clutch, is_pan_active = pipeline.process_frame(unpacked_packet, current_time, delta_time)
+                movement_x, movement_y, is_active, is_left, is_right, is_gesture, hi_res_x, hi_res_y, wheel_x, wheel_y, raw_clutch, is_pan_active = pipeline.process_frame(unpacked_packet, current_time, delta_time)
 
                 is_axis_locked = pipeline.locked_pan_axis is not None
                 current_led_bitmask = (1 if is_pan_active else 0) | (2 if is_axis_locked else 0)
@@ -449,8 +479,8 @@ def run_air_mouse_cli():
                     virtual_mouse_device, is_left, is_right, is_gesture, last_left_click, last_right_click, pipeline, current_time
                 )
 
-                if scroll_x != 0 or scroll_y != 0:
-                    emit_scroll_movement(virtual_mouse_device, scroll_x, scroll_y)
+                if hi_res_x != 0 or hi_res_y != 0 or wheel_x != 0 or wheel_y != 0:
+                    emit_scroll_movement(virtual_mouse_device, hi_res_x, hi_res_y, wheel_x, wheel_y)
                 emit_relative_mouse_movement(virtual_mouse_device, movement_x, movement_y)
                 packet_counter += 1
 

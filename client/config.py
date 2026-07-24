@@ -142,8 +142,8 @@ DEFAULT_SCROLL_MODE_ENABLED = True
 # Scroll & Pan sensitivity multipliers converting gyro rates to wheel scroll steps.
 # Range: 0.1 to 10.0 (Default: 1.0)
 DEFAULT_SCROLL_SENSITIVITY = 0.8
-DEFAULT_PAN_SENSITIVITY_X = 2.0
-DEFAULT_PAN_SENSITIVITY_Y = 2.0
+DEFAULT_PAN_SENSITIVITY_X = 1.0
+DEFAULT_PAN_SENSITIVITY_Y = 1.0
 
 # Scroll deadzone threshold (rad/s) to prevent unwanted scrolling during tiny hand tremors.
 # Range: 0.005 to 0.05 rad/s (Default: 0.02)
@@ -170,6 +170,10 @@ DEFAULT_PAN_AXIS_LOCK_THRESHOLD = 0.015
 # Range: 0.05 to 1.0 s (Default: 0.25 s)
 DEFAULT_PAN_AXIS_LOCK_DECAY_TIME = 0.25
 
+# Soft-start ramp duration (seconds) when locking pan axis to eliminate initial velocity jerk.
+# Range: 0.0 to 0.2 s (Default: 0.06 s = 60ms)
+DEFAULT_PAN_LOCK_RAMP_DURATION = 0.06
+
 # Pan mode activation hold duration in seconds (must hold clutch relatively still for this duration).
 # Range: 0.05 to 1.0 s (Default: 0.09 s = 90ms)
 DEFAULT_PAN_ACTIVATION_DELAY = 0.09
@@ -177,6 +181,26 @@ DEFAULT_PAN_ACTIVATION_DELAY = 0.09
 # Max motion speed (rad/s) allowed during the hold delay to be considered "relatively still".
 # Range: 0.02 to 0.5 rad/s (Default: 0.25)
 DEFAULT_PAN_STILLNESS_THRESHOLD = 0.25
+
+# Enable high-resolution subpixel smooth scrolling (using REL_WHEEL_HI_RES evdev events).
+# Expected: True / False (Default: True)
+DEFAULT_SMOOTH_SCROLL_ENABLED = True
+
+# High-resolution scroll scale factor (Linux evdev standard: 120 units per 1 standard wheel notch).
+DEFAULT_SCROLL_HI_RES_SCALE = 120.0
+
+# Low-pass filter smoothing coefficient (0.0 to 1.0) for scroll velocity.
+# Lower values give smoother motion, higher values give more immediate response. (Default: 0.35)
+DEFAULT_SCROLL_SMOOTHING_ALPHA = 0.15
+
+# Enable kinetic inertia coasting/gliding when stopping pan motion or releasing clutch.
+# Expected: True / False (Default: True)
+DEFAULT_SCROLL_INERTIA_ENABLED = True
+
+# Kinetic inertia decay time constant in seconds (friction duration for glide animation).
+# Range: 0.05 to 0.5 s (Default: 0.15 s)
+DEFAULT_SCROLL_INERTIA_DECAY = 0.15
+
 
 
 
