@@ -140,13 +140,13 @@ DEFAULT_CLICK_SLOWDOWN_EXPONENT = 0.6
 DEFAULT_SCROLL_MODE_ENABLED = True
 
 # Scroll & Pan sensitivity multipliers converting gyro rates to wheel scroll steps.
-# Range: 0.1 to 10.0 (Default: 2.5)
-DEFAULT_SCROLL_SENSITIVITY = 2.5
-DEFAULT_PAN_SENSITIVITY_X = 2.5
-DEFAULT_PAN_SENSITIVITY_Y = 2.5
+# Range: 0.1 to 10.0 (Default: 1.0)
+DEFAULT_SCROLL_SENSITIVITY = 0.8
+DEFAULT_PAN_SENSITIVITY_X = 2.0
+DEFAULT_PAN_SENSITIVITY_Y = 2.0
 
 # Scroll deadzone threshold (rad/s) to prevent unwanted scrolling during tiny hand tremors.
-# Range: 0.005 to 0.05 rad/s (Default: 0.01)
+# Range: 0.005 to 0.05 rad/s (Default: 0.02)
 DEFAULT_SCROLL_DEADZONE = 0.01
 
 # Invert vertical scroll direction.
@@ -162,7 +162,7 @@ DEFAULT_SCROLL_AXIS_LOCK = True
 # Minimum physical wrist angle (radians) before locking pan axis (vertical or horizontal).
 # Measured directly from raw sensor displacement, independent of OS sensitivity settings.
 # Range: 0.005 to 0.10 rad (Default: 0.02 rad ≈ 1.1 degrees)
-DEFAULT_PAN_AXIS_LOCK_THRESHOLD = 0.02
+DEFAULT_PAN_AXIS_LOCK_THRESHOLD = 0.015
 
 # Sliding time window (seconds) for pan axis lock motion integration.
 # Uses a leaky signed integrator so circular motion and wiggles cancel out (+ and -)
@@ -212,6 +212,10 @@ DEFAULT_POST_PAN_SLOWDOWN_EXPONENT = 0.5
 # Expected: True / False (Default: True)
 DEFAULT_INVERT_CLUTCH = True
 
+# Max g-force deviation from 1.0g before ignoring accelerometer gravity correction.
+# Range: 0.05 to 0.5 (Default: 0.1)
+DEFAULT_ACCEL_REJECTION_THRESHOLD = 0.1
+
 # Max roll angle clamp in degrees for Madgwick horizon alignment.
 # Range: 45.0 to 85.0 deg (Default: 75.0)
 DEFAULT_MAX_ROLL_DEGREES = 75.0
@@ -220,7 +224,7 @@ DEFAULT_MAX_ROLL_DEGREES = 75.0
 # Controls how aggressively the accelerometer corrects the gyro orientation estimate.
 # Higher = faster correction but more noise susceptibility; Lower = smoother but slower.
 # Range: 0.01 to 0.5 (Default: 0.1)
-DEFAULT_MADGWICK_BETA = 0.1
+DEFAULT_MADGWICK_BETA = 0.9
 
 # Scales how much the Madgwick beta is reduced as sensitivity (potentiometer) increases.
 # At high sensitivity the gyro contribution dominates; this reduces accel correction
