@@ -180,6 +180,7 @@ class AirMousePipeline:
 
         self.clutch_hold_start_timestamp = None
         self.is_pan_mode_active = False
+        self.pan_activation_failed_for_press = False
         self.previous_pan_mode_active = False
         self.previous_click_held = False
         self.previous_clutch_pressed = False
@@ -302,21 +303,26 @@ class AirMousePipeline:
         if not raw_clutch_pressed:
             self.clutch_hold_start_timestamp = None
             self.is_pan_mode_active = False
+            self.pan_activation_failed_for_press = False
             return False
 
+        if self.pan_activation_failed_for_press:
+            return False
+
+        if self.is_pan_mode_active:
+            return True
+
+        if self.clutch_hold_start_timestamp is None:
+            self.clutch_hold_start_timestamp = timestamp
+
         motion_speed = math.sqrt(screen_pitch_rate * screen_pitch_rate + screen_yaw_rate * screen_yaw_rate)
+        if motion_speed > self.pan_stillness_threshold:
+            self.pan_activation_failed_for_press = True
+            return False
 
-        if not self.is_pan_mode_active:
-            if motion_speed > self.pan_stillness_threshold:
-                self.clutch_hold_start_timestamp = None
-                return False
-
-            if self.clutch_hold_start_timestamp is None:
-                self.clutch_hold_start_timestamp = timestamp
-
-            hold_duration = timestamp - self.clutch_hold_start_timestamp
-            if hold_duration >= self.pan_activation_delay:
-                self.is_pan_mode_active = True
+        hold_duration = timestamp - self.clutch_hold_start_timestamp
+        if hold_duration >= self.pan_activation_delay:
+            self.is_pan_mode_active = True
 
         return self.is_pan_mode_active
 
