@@ -27,6 +27,7 @@ try:
         DEFAULT_PAN_SENSITIVITY_Y,
         DEFAULT_SCROLL_DEADZONE,
         DEFAULT_INVERT_VERTICAL_SCROLL,
+        DEFAULT_SCROLL_AXIS_LOCK,
         DEFAULT_PAN_ACTIVATION_DELAY,
         DEFAULT_PAN_STILLNESS_THRESHOLD,
         DEFAULT_POST_PAN_SLOWDOWN_ENABLED,
@@ -77,6 +78,7 @@ except ImportError:
         DEFAULT_PAN_SENSITIVITY_Y,
         DEFAULT_SCROLL_DEADZONE,
         DEFAULT_INVERT_VERTICAL_SCROLL,
+        DEFAULT_SCROLL_AXIS_LOCK,
         DEFAULT_PAN_ACTIVATION_DELAY,
         DEFAULT_PAN_STILLNESS_THRESHOLD,
         DEFAULT_POST_PAN_SLOWDOWN_ENABLED,
@@ -121,6 +123,7 @@ class AirMousePipeline:
         pan_sensitivity_y=None,
         scroll_deadzone=DEFAULT_SCROLL_DEADZONE,
         invert_vertical_scroll=DEFAULT_INVERT_VERTICAL_SCROLL,
+        scroll_axis_lock=DEFAULT_SCROLL_AXIS_LOCK,
         pan_activation_delay=DEFAULT_PAN_ACTIVATION_DELAY,
         pan_stillness_threshold=DEFAULT_PAN_STILLNESS_THRESHOLD,
         post_pan_slowdown_enabled=DEFAULT_POST_PAN_SLOWDOWN_ENABLED,
@@ -162,6 +165,7 @@ class AirMousePipeline:
         self.pan_sensitivity_y = pan_sensitivity_y if pan_sensitivity_y is not None else scroll_sensitivity
         self.scroll_deadzone = scroll_deadzone
         self.invert_vertical_scroll = invert_vertical_scroll
+        self.scroll_axis_lock = scroll_axis_lock
         self.pan_activation_delay = pan_activation_delay
         self.pan_stillness_threshold = pan_stillness_threshold
         self.post_pan_slowdown_enabled = post_pan_slowdown_enabled
@@ -436,6 +440,14 @@ class AirMousePipeline:
     def _process_scroll_and_pan(self, screen_pitch_rate, screen_yaw_rate):
         pitch_rate = apply_deadzone_filter(screen_pitch_rate, self.scroll_deadzone)
         yaw_rate = apply_deadzone_filter(screen_yaw_rate, self.scroll_deadzone)
+
+        if self.scroll_axis_lock:
+            if abs(pitch_rate) >= abs(yaw_rate):
+                yaw_rate = 0.0
+                self.scroll_accumulator_x = 0.0
+            else:
+                pitch_rate = 0.0
+                self.scroll_accumulator_y = 0.0
 
         vertical_direction = -1.0 if self.invert_vertical_scroll else 1.0
         scroll_delta_y = pitch_rate * self.pan_sensitivity_y * vertical_direction

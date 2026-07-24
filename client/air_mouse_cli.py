@@ -27,6 +27,7 @@ try:
         DEFAULT_PAN_SENSITIVITY_Y,
         DEFAULT_SCROLL_DEADZONE,
         DEFAULT_INVERT_VERTICAL_SCROLL,
+        DEFAULT_SCROLL_AXIS_LOCK,
         DEFAULT_PAN_ACTIVATION_DELAY,
         DEFAULT_PAN_STILLNESS_THRESHOLD,
         DEFAULT_POST_PAN_SLOWDOWN_ENABLED,
@@ -69,6 +70,7 @@ except ImportError:
         DEFAULT_PAN_SENSITIVITY_Y,
         DEFAULT_SCROLL_DEADZONE,
         DEFAULT_INVERT_VERTICAL_SCROLL,
+        DEFAULT_SCROLL_AXIS_LOCK,
         DEFAULT_PAN_ACTIVATION_DELAY,
         DEFAULT_PAN_STILLNESS_THRESHOLD,
         DEFAULT_POST_PAN_SLOWDOWN_ENABLED,
@@ -182,6 +184,7 @@ def parse_command_line_arguments():
     parser.add_argument("--scroll-deadzone", type=float, default=DEFAULT_SCROLL_DEADZONE, help=f"Scroll deadzone threshold in rad/s (default: {DEFAULT_SCROLL_DEADZONE})")
     parser.add_argument("--no-scroll-mode", dest="scroll_mode_enabled", action="store_false", default=DEFAULT_SCROLL_MODE_ENABLED, help="Disable scroll/pan mode when gesture button is held")
     parser.add_argument("--normal-vertical-scroll", dest="invert_vertical_scroll", action="store_false", default=DEFAULT_INVERT_VERTICAL_SCROLL, help="Use non-inverted vertical scroll direction")
+    parser.add_argument("--no-scroll-axis-lock", dest="scroll_axis_lock", action="store_false", default=DEFAULT_SCROLL_AXIS_LOCK, help="Disable single-axis scroll locking")
     parser.add_argument("--pan-activation-delay", type=float, default=DEFAULT_PAN_ACTIVATION_DELAY, help=f"Seconds clutch must be held still before pan activates (default: {DEFAULT_PAN_ACTIVATION_DELAY})")
     parser.add_argument("--pan-stillness-threshold", type=float, default=DEFAULT_PAN_STILLNESS_THRESHOLD, help=f"Max motion speed rad/s considered 'still' during pan activation hold (default: {DEFAULT_PAN_STILLNESS_THRESHOLD})")
 
@@ -350,6 +353,7 @@ def run_air_mouse_cli():
         pan_sensitivity_y=pan_y,
         scroll_deadzone=arguments.scroll_deadzone,
         invert_vertical_scroll=arguments.invert_vertical_scroll,
+        scroll_axis_lock=arguments.scroll_axis_lock,
         pan_activation_delay=arguments.pan_activation_delay,
         pan_stillness_threshold=arguments.pan_stillness_threshold,
         post_pan_slowdown_enabled=arguments.post_pan_slowdown_enabled,

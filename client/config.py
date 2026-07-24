@@ -142,7 +142,7 @@ DEFAULT_SCROLL_MODE_ENABLED = True
 
 # Scroll & Pan sensitivity multipliers converting gyro rates to wheel scroll steps.
 # Range: 0.1 to 10.0 (Default: 1.0)
-DEFAULT_SCROLL_SENSITIVITY = 1.0
+DEFAULT_SCROLL_SENSITIVITY = 2.0
 DEFAULT_PAN_SENSITIVITY_X = 2.0
 DEFAULT_PAN_SENSITIVITY_Y = 2.0
 
@@ -155,9 +155,14 @@ DEFAULT_SCROLL_DEADZONE = 0.02
 # Expected: True / False (Default: True)
 DEFAULT_INVERT_VERTICAL_SCROLL = True
 
+# Lock scrolling to a single dominant axis (vertical or horizontal) at a time.
+# Prevents diagonal jitter and unwanted horizontal scrolling while swiping vertically.
+# Expected: True / False (Default: True)
+DEFAULT_SCROLL_AXIS_LOCK = True
+
 # Pan mode activation hold duration in seconds (must hold clutch relatively still for this duration).
 # Range: 0.1 to 2.0 s (Default: 0.5 s = 500ms)
-DEFAULT_PAN_ACTIVATION_DELAY = 0.07
+DEFAULT_PAN_ACTIVATION_DELAY = 0.1
 
 # Max motion speed (rad/s) allowed during the hold delay to be considered "relatively still".
 # Range: 0.02 to 0.5 rad/s (Default: 0.15)
