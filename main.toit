@@ -15,14 +15,16 @@ import .utils.env show DEBUG
 
 // --- Constants ---
 DEVICE-NAME ::= "ESP32-S3"
+IMU-REFRESH-RATE ::= 208
+POTENTIOMETER-POLL-MS ::= 50
 
 // GPIO Pins
 CLUTCH-PIN          ::= 1
 LEFT-CLICK-PIN      ::= 35
-RIGHT-CLICK-PIN     ::= 36
-LEFT-CLICK-LED-PIN  ::= 8
+RIGHT-CLICK-PIN     ::= 16
+LEFT-CLICK-LED-PIN  ::= 14
 RIGHT-CLICK-LED-PIN ::= 11
-POTENTIOMETER-PIN   ::= 9
+POTENTIOMETER-PIN   ::= 2
 GESTURE-PIN         ::= 3
 PAN-LED-PIN         ::= 40
 AXIS-LOCK-LED-PIN   ::= 13
@@ -33,7 +35,7 @@ BLUE-RGB-PIN  ::= 4
 SDA-PIN ::= 21
 SCL-PIN ::= 20
 INT-PIN ::= 7
-OVERLOAD-LED-PIN ::= 2
+OVERLOAD-LED-PIN ::= 17
 
 // --- Main Entry ---
 main:
@@ -71,10 +73,10 @@ run-airmouse-app:
     --right-click-led-pin=RIGHT-CLICK-LED-PIN
 
 
-  potentiometer-manager := PotentiometerManager --pin-num=POTENTIOMETER-PIN
+  potentiometer-manager := PotentiometerManager --pin-num=POTENTIOMETER-PIN --poll-interval-ms=POTENTIOMETER-POLL-MS
   potentiometer-manager.start
 
-  imu := Imu --sda=SDA-PIN --scl=SCL-PIN --int-pin=INT-PIN
+  imu := Imu --sda=SDA-PIN --scl=SCL-PIN --int-pin=INT-PIN --frequency=IMU-REFRESH-RATE
   imu.start
 
   gesture-manager := GestureManager

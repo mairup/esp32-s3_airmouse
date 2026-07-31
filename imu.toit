@@ -36,12 +36,14 @@ class Imu:
   sda-pin_ /int
   scl-pin_ /int
   int-pin_ /int
+  frequency_ /int
   device_ /i2c.Device? := null
 
-  constructor --sda/int --scl/int --int-pin/int:
+  constructor --sda/int --scl/int --int-pin/int --frequency/int=208:
     sda-pin_ = sda
     scl-pin_ = scl
     int-pin_ = int-pin
+    frequency_ = frequency
 
   int-pin-num -> int: return int-pin_
 
@@ -105,13 +107,23 @@ class Imu:
     if device-identification[0] != WHO-AM-I-VALUE:
       throw "IMU not found: WHO_AM_I=0x$(%02x device-identification[0]), expected 0x$(%02x WHO-AM-I-VALUE)"
 
-  /// Configures Gyroscope: Output Data Rate = 104 Hz, Full Scale = ±500 dps.
+  /// Configures Gyroscope: Output Data Rate based on frequency_, Full Scale = ±500 dps.
   configure-gyro_ -> none:
-    device_.write-reg CONTROL-REGISTER-2-GYROSCOPE CONFIG-GYRO-104HZ-500DPS
+    odr := 0x40
+    if frequency_ >= 833: odr = 0x70
+    else if frequency_ >= 416: odr = 0x60
+    else if frequency_ >= 208: odr = 0x50
+    val := odr | 0x04
+    device_.write-reg CONTROL-REGISTER-2-GYROSCOPE #[val]
 
-  /// Configures Accelerometer: Output Data Rate = 104 Hz, Full Scale = ±4g.
+  /// Configures Accelerometer: Output Data Rate based on frequency_, Full Scale = ±4g.
   configure-accelerometer_ -> none:
-    device_.write-reg CONTROL-REGISTER-1-ACCELEROMETER CONFIG-ACCEL-104HZ-4G
+    odr := 0x40
+    if frequency_ >= 833: odr = 0x70
+    else if frequency_ >= 416: odr = 0x60
+    else if frequency_ >= 208: odr = 0x50
+    val := odr | 0x08
+    device_.write-reg CONTROL-REGISTER-1-ACCELEROMETER #[val]
 
   /// Enables Block Data Update (BDU) and Address Auto-Increment (IF_INC).
   enable-control-features_ -> none:

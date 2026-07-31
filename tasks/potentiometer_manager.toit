@@ -5,9 +5,10 @@ import ..utils.imu_data as imu_data
 
 class PotentiometerManager:
   pin-num /int
+  poll-interval-ms /int
   run-thread /Task? := null
 
-  constructor --.pin-num:
+  constructor --.pin-num --.poll-interval-ms=50:
 
   start -> none:
     if run-thread: return
@@ -18,9 +19,8 @@ class PotentiometerManager:
 
     run-thread = task::
       while true:
-        voltage-ratio := adc.get
-        imu-data.potentiometer_val = (voltage-ratio * 4095.0).to-int
-        sleep --ms=50
+        imu-data.potentiometer_val = adc.get --raw
+        sleep --ms=poll-interval-ms
 
     log.info "SUCCESS: PotentiometerManager started successfully"
 
