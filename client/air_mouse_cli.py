@@ -414,9 +414,6 @@ def run_air_mouse_cli():
         scroll_inertia_decay=arguments.scroll_inertia_decay,
     )
 
-    print(f"[AirMouse CLI] Target: {arguments.ip_address}:{arguments.port} | Virtual Mouse Active (Press Ctrl+C to exit)\n")
-
-
     running = True
 
     def signal_handler(signal_number, frame):
@@ -439,6 +436,14 @@ def run_air_mouse_cli():
     is_pan_active = False
     previous_led_bitmask = 0
 
+    is_connected = False
+    last_rx_time = 0.0
+    disconnect_timeout = 1.5
+
+    sys.stdout.write(f"[AirMouse CLI] Target: {arguments.ip_address}:{arguments.port} | Virtual Mouse Active (Press Ctrl+C to exit)\n")
+    sys.stdout.write(f"[AirMouse CLI] Searching for ESP32 at {arguments.ip_address}:{arguments.port}...\r")
+    sys.stdout.flush()
+
     try:
         while running:
             current_time = time.monotonic()
@@ -448,38 +453,64 @@ def run_air_mouse_cli():
                 last_heartbeat_time = current_time
 
             datagrams_to_process = drain_udp_socket_buffers(client_socket)
-            if not datagrams_to_process:
-                continue
+            if datagrams_to_process:
+                last_rx_time = current_time
+                if not is_connected:
+                    is_connected = True
+                    packet_counter = 0
+                    start_time = current_time
+                    sys.stdout.write(f"\r[AirMouse CLI] Connected to {arguments.ip_address}:{arguments.port}! Streaming active.\n")
+                    sys.stdout.flush()
 
-            for datagram in datagrams_to_process:
-                unpacked_packet = unpack_binary_datagram(datagram)
-                delta_time = calculate_packet_delta_time(current_time, last_packet_timestamp)
-                last_packet_timestamp = current_time
+                for datagram in datagrams_to_process:
+                    unpacked_packet = unpack_binary_datagram(datagram)
+                    delta_time = calculate_packet_delta_time(current_time, last_packet_timestamp)
+                    last_packet_timestamp = current_time
 
-                movement_x, movement_y, is_active, is_left, is_right, is_gesture, hi_res_x, hi_res_y, wheel_x, wheel_y, raw_clutch, is_pan_active = pipeline.process_frame(unpacked_packet, current_time, delta_time)
+                    movement_x, movement_y, is_active, is_left, is_right, is_gesture, hi_res_x, hi_res_y, wheel_x, wheel_y, raw_clutch, is_pan_active = pipeline.process_frame(unpacked_packet, current_time, delta_time)
 
-                is_axis_locked = pipeline.locked_pan_axis is not None
-                current_led_bitmask = (1 if is_pan_active else 0) | (2 if is_axis_locked else 0)
+                    is_axis_locked = pipeline.locked_pan_axis is not None
+                    current_led_bitmask = (1 if is_pan_active else 0) | (2 if is_axis_locked else 0)
 
-                if current_led_bitmask != previous_led_bitmask:
-                    send_led_command(client_socket, arguments.ip_address, arguments.port, current_led_bitmask)
-                    if (current_led_bitmask & 1) != (previous_led_bitmask & 1):
-                        if is_pan_active:
-                            set_cursor_hand()
-                        else:
-                            restore_cursor()
-                    previous_led_bitmask = current_led_bitmask
+                    if current_led_bitmask != previous_led_bitmask:
+                        send_led_command(client_socket, arguments.ip_address, arguments.port, current_led_bitmask)
+                        if (current_led_bitmask & 1) != (previous_led_bitmask & 1):
+                            if is_pan_active:
+                                set_cursor_hand()
+                            else:
+                                restore_cursor()
+                        previous_led_bitmask = current_led_bitmask
 
-                last_left_click, last_right_click = update_mouse_button_states(
-                    virtual_mouse_device, is_left, is_right, is_gesture, last_left_click, last_right_click, pipeline, current_time
-                )
+                    last_left_click, last_right_click = update_mouse_button_states(
+                        virtual_mouse_device, is_left, is_right, is_gesture, last_left_click, last_right_click, pipeline, current_time
+                    )
 
-                if hi_res_x != 0 or hi_res_y != 0 or wheel_x != 0 or wheel_y != 0:
-                    emit_scroll_movement(virtual_mouse_device, hi_res_x, hi_res_y, wheel_x, wheel_y)
-                emit_relative_mouse_movement(virtual_mouse_device, movement_x, movement_y)
-                packet_counter += 1
+                    if hi_res_x != 0 or hi_res_y != 0 or wheel_x != 0 or wheel_y != 0:
+                        emit_scroll_movement(virtual_mouse_device, hi_res_x, hi_res_y, wheel_x, wheel_y)
+                    emit_relative_mouse_movement(virtual_mouse_device, movement_x, movement_y)
+                    packet_counter += 1
+            else:
+                if is_connected and (current_time - last_rx_time) > disconnect_timeout:
+                    is_connected = False
+                    sys.stdout.write(f"\n[AirMouse CLI] Connection lost to {arguments.ip_address}:{arguments.port}. Waiting for reconnect...\n")
+                    sys.stdout.flush()
+                    restore_cursor()
+                    try:
+                        virtual_mouse_device.write(e.EV_KEY, e.BTN_LEFT, 0)
+                        virtual_mouse_device.write(e.EV_KEY, e.BTN_RIGHT, 0)
+                        virtual_mouse_device.write(e.EV_KEY, e.BTN_MIDDLE, 0)
+                        virtual_mouse_device.syn()
+                    except Exception:
+                        pass
+                    last_left_click = False
+                    last_right_click = False
 
-            if current_time - status_print_time >= 2.0:
+                if not is_connected:
+                    sys.stdout.write(f"\r[AirMouse CLI] Searching for ESP32 at {arguments.ip_address}:{arguments.port}...   ")
+                    sys.stdout.flush()
+                    time.sleep(0.05)
+
+            if is_connected and (current_time - status_print_time >= 1.0):
                 display_streaming_status(pipeline, packet_counter, start_time, is_active, last_left_click, last_right_click, is_gesture, raw_clutch, is_pan_active)
                 status_print_time = current_time
 
