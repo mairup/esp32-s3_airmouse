@@ -52,9 +52,7 @@ class Imu:
 
     log.info "Initializing IMU on SDA=$sda-pin_, SCL=$scl-pin_, INT=$int-pin_..."
     
-    sda := gpio.Pin sda-pin_
-    scl := gpio.Pin scl-pin_
-    bus := i2c.Bus --sda=sda --scl=scl --frequency=400_000
+    bus := i2c.Bus --sda=sda-pin_ --scl=scl-pin_ --frequency=400_000
 
     devices := [bus.device ADDRESS-LOW, bus.device ADDRESS-HIGH]
 

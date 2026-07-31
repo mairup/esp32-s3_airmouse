@@ -30,9 +30,9 @@ class RgbLed:
         
     log.info "Initializing RgbLed on R:$red, G:$green, B:$blue..."
     generator = pwm.Pwm --frequency=1000
-    red-channel = generator.start (gpio.Pin red)
-    green-channel = generator.start (gpio.Pin green)
-    blue-channel = generator.start (gpio.Pin blue)
+    red-channel = generator.start red
+    green-channel = generator.start green
+    blue-channel = generator.start blue
     update_
     log.info "SUCCESS: RgbLed initialized successfully"
 

@@ -14,8 +14,7 @@ class PotentiometerManager:
     if run-thread: return
     log.info "Starting PotentiometerManager on GPIO $pin-num..."
     
-    pin := gpio.Pin pin-num
-    adc := gpio_adc.Adc pin
+    adc := gpio_adc.Adc pin-num
 
     run-thread = task::
       while true:
