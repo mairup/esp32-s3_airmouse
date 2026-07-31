@@ -310,21 +310,16 @@ def update_mouse_button_states(virtual_mouse_device, is_left_click, is_right_cli
 
     if is_right_click != previous_right_click:
         if is_right_click and is_gesture_active:
-            virtual_mouse_device.write(e.EV_KEY, e.BTN_RIGHT, 1)
+            virtual_mouse_device.write(e.EV_KEY, e.BTN_MIDDLE, 1)
             virtual_mouse_device.syn()
-            time.sleep(0.02)
-            virtual_mouse_device.write(e.EV_KEY, e.BTN_RIGHT, 0)
-            virtual_mouse_device.syn()
-            time.sleep(0.02)
             if pipeline and current_time:
                 pipeline.trigger_click_slowdown(current_time)
-            virtual_mouse_device.write(e.EV_KEY, e.BTN_RIGHT, 1)
-            virtual_mouse_device.syn()
-            time.sleep(0.02)
+        elif not is_right_click:
             virtual_mouse_device.write(e.EV_KEY, e.BTN_RIGHT, 0)
+            virtual_mouse_device.write(e.EV_KEY, e.BTN_MIDDLE, 0)
             virtual_mouse_device.syn()
         else:
-            virtual_mouse_device.write(e.EV_KEY, e.BTN_RIGHT, 1 if is_right_click else 0)
+            virtual_mouse_device.write(e.EV_KEY, e.BTN_RIGHT, 1)
             virtual_mouse_device.syn()
 
     return is_left_click, is_right_click
@@ -500,6 +495,7 @@ def run_air_mouse_cli():
             if last_left_click or last_right_click:
                 virtual_mouse_device.write(e.EV_KEY, e.BTN_LEFT, 0)
                 virtual_mouse_device.write(e.EV_KEY, e.BTN_RIGHT, 0)
+                virtual_mouse_device.write(e.EV_KEY, e.BTN_MIDDLE, 0)
                 virtual_mouse_device.syn()
         except Exception:
             pass
