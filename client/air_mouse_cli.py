@@ -325,34 +325,56 @@ def update_mouse_button_states(virtual_mouse_device, is_left_click, is_right_cli
     return is_left_click, is_right_click
 
 
-def display_streaming_status(pipeline, packet_counter, start_time, is_active, last_left_click, last_right_click, is_gesture=False, raw_clutch_pressed=False, is_pan_active=False):
+def display_streaming_status(pipeline, packet_counter, start_time, is_active, last_left_click, last_right_click, is_gesture=False, raw_clutch_pressed=False, is_pan_active=False, is_connected=True, target_ip="", target_port=0):
     elapsed = time.monotonic() - start_time
-    packet_rate = packet_counter / elapsed if elapsed > 0 else 0.0
-    pot_val = pipeline.raw_potentiometer
-    pot_pct = int(pipeline.potentiometer_ratio * 100)
+    packet_rate = packet_counter / elapsed if (elapsed > 0 and is_connected) else 0.0
+    pot_val = pipeline.raw_potentiometer if pipeline else 0
+    pot_pct = int(pipeline.potentiometer_ratio * 100) if pipeline else 0
+    sens_val = f"{pipeline.sensitivity:.2f}" if pipeline else "0.00"
 
-    if is_pan_active:
+    if not is_connected:
+        current_mode_str = "DISCONNECTED"
+        status_banner = f"SEARCHING (Waiting for {target_ip}:{target_port}...)"
+    elif is_pan_active:
         if pipeline.locked_pan_axis:
             current_mode_str = f"PAN-{pipeline.locked_pan_axis.upper()}"
         else:
             current_mode_str = "PAN/SCROLL"
+        status_banner = f"STREAMING ({target_ip}:{target_port})"
     elif raw_clutch_pressed:
         current_mode_str = "PAN-HOLD..."
+        status_banner = f"STREAMING ({target_ip}:{target_port})"
     elif last_left_click or last_right_click:
         current_mode_str = "CLICK-DRAG"
+        status_banner = f"GESTURE-MOD" if is_gesture else "CLICK-DRAG"
     elif is_gesture:
-        current_mode_str = "DBL-CLICK-MOD"
+        current_mode_str = "GESTURE-MOD"
+        status_banner = f"STREAMING ({target_ip}:{target_port})"
     else:
         current_mode_str = "ACTIVE"
+        status_banner = f"STREAMING ({target_ip}:{target_port})"
 
-    status_text = (
-        f"\r[AirMouse CLI] Streaming @ {packet_rate:.1f} Hz | Pot: {pot_val} ({pot_pct}%) | "
-        f"Sens: {pipeline.sensitivity:.2f} | Mode: {current_mode_str} | "
-        f"L: {'DOWN' if last_left_click else 'UP'} | R: {'DOWN' if last_right_click else 'UP'} | G: {'DOWN' if is_gesture else 'UP'}   "
+    dashboard = (
+        "\033[H\033[2J"
+        "==============================================================================\n"
+        "                         ESP32 AIR MOUSE MONITOR                              \n"
+        "==============================================================================\n"
+        f" Status:            {status_banner}\n"
+        f" Stream Frequency:  {packet_rate:.1f} Hz\n"
+        f" Potentiometer:     {pot_val} ({pot_pct}%)\n"
+        f" Mouse Sensitivity: {sens_val}\n"
+        f" Current Mode:      {current_mode_str}\n"
+        "------------------------------------------------------------------------------\n"
+        " Input States:\n"
+        f"   Left Button:     {'DOWN' if last_left_click else 'UP'}\n"
+        f"   Right Button:    {'DOWN' if last_right_click else 'UP'}\n"
+        f"   Gesture Button:  {'DOWN' if is_gesture else 'UP'}\n"
+        f"   Clutch Pin:      {'PRESSED' if raw_clutch_pressed else 'RELEASED'}\n"
+        "==============================================================================\n"
+        " Press Ctrl+C to exit\n"
     )
-    sys.stdout.write(status_text)
+    sys.stdout.write(dashboard)
     sys.stdout.flush()
-
 
 
 def run_air_mouse_cli():
@@ -440,8 +462,7 @@ def run_air_mouse_cli():
     last_rx_time = 0.0
     disconnect_timeout = 1.5
 
-    sys.stdout.write(f"[AirMouse CLI] Target: {arguments.ip_address}:{arguments.port} | Virtual Mouse Active (Press Ctrl+C to exit)\n")
-    sys.stdout.write(f"[AirMouse CLI] Searching for ESP32 at {arguments.ip_address}:{arguments.port}...\r")
+    sys.stdout.write("\033[?25l")
     sys.stdout.flush()
 
     try:
@@ -459,8 +480,6 @@ def run_air_mouse_cli():
                     is_connected = True
                     packet_counter = 0
                     start_time = current_time
-                    sys.stdout.write(f"\r[AirMouse CLI] Connected to {arguments.ip_address}:{arguments.port}! Streaming active.\n")
-                    sys.stdout.flush()
 
                 for datagram in datagrams_to_process:
                     unpacked_packet = unpack_binary_datagram(datagram)
@@ -492,8 +511,6 @@ def run_air_mouse_cli():
             else:
                 if is_connected and (current_time - last_rx_time) > disconnect_timeout:
                     is_connected = False
-                    sys.stdout.write(f"\n[AirMouse CLI] Connection lost to {arguments.ip_address}:{arguments.port}. Waiting for reconnect...\n")
-                    sys.stdout.flush()
                     restore_cursor()
                     try:
                         virtual_mouse_device.write(e.EV_KEY, e.BTN_LEFT, 0)
@@ -506,22 +523,20 @@ def run_air_mouse_cli():
                     last_right_click = False
 
                 if not is_connected:
-                    sys.stdout.write(f"\r[AirMouse CLI] Searching for ESP32 at {arguments.ip_address}:{arguments.port}...   ")
-                    sys.stdout.flush()
                     time.sleep(0.05)
 
-            if is_connected and (current_time - status_print_time >= 1.0):
-                display_streaming_status(pipeline, packet_counter, start_time, is_active, last_left_click, last_right_click, is_gesture, raw_clutch, is_pan_active)
+            if current_time - status_print_time >= 0.1:
+                display_streaming_status(
+                    pipeline, packet_counter, start_time, is_active,
+                    last_left_click, last_right_click, is_gesture, raw_clutch, is_pan_active,
+                    is_connected=is_connected, target_ip=arguments.ip_address, target_port=arguments.port
+                )
                 status_print_time = current_time
 
-
-
-
     finally:
-        sys.stdout.write("\n[AirMouse CLI] Shutting down...\n")
+        sys.stdout.write("\033[?25h\033[H\033[2J[AirMouse CLI] Shutting down...\n")
         sys.stdout.flush()
         restore_cursor()
-        send_led_command(client_socket, arguments.ip_address, arguments.port, 0)
         try:
             if last_left_click or last_right_click:
                 virtual_mouse_device.write(e.EV_KEY, e.BTN_LEFT, 0)
