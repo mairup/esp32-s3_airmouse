@@ -250,8 +250,7 @@ class StateTransitionSlowdown:
         if elapsed < 0.0:
             return self.initial_factor
 
-        if elapsed >= self.duration_seconds or self.duration_seconds <= 0.0:
-            self.reset()
+        if self.should_reset(elapsed):
             return 1.0
 
         progress = elapsed / self.duration_seconds
@@ -259,4 +258,12 @@ class StateTransitionSlowdown:
         gap = self.target_factor - self.initial_factor
         return self.initial_factor + gap * curved_progress
 
+    def should_reset(self, elapsed):
+        if self.start_timestamp is None or not self.is_active:
+            return False
+        if elapsed >= self.duration_seconds or self.duration_seconds <= 0.0:
+            self.start_timestamp = None
+            self.is_active = False
+            return True
+        return False
 
