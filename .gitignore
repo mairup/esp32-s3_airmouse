@@ -18,4 +18,5 @@ ENV/
 deprecated/
 utils/config.toit
 scratch/
+.env
 

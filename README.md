@@ -63,6 +63,40 @@ The system consists of two primary components:
 
 ---
 
+## Quickstart (Makefile Commands)
+
+The project includes a [Makefile](file:///home/mai/Documents/FRI/L2/VIN/VIN%20PROJEKT/esp32-s3_airmouse/Makefile) to streamline firmware deployment and client operation.
+
+Configuration parameters can be set in a local untracked `.env` file (see [.env.example](file:///home/mai/Documents/FRI/L2/VIN/VIN%20PROJEKT/esp32-s3_airmouse/.env.example)) or passed as CLI arguments:
+
+```bash
+# 1. Flash Jaguar VM to ESP32-S3 with Wi-Fi credentials
+make flash WIFI_SSID="MySSID" WIFI_PASSWORD="MyPassword"
+
+# 2. Run firmware on ESP32-S3 over Wi-Fi via Jaguar
+make esp
+# Or specify a device:
+make esp DEVICE=lost-moment
+
+# 3. Start host Python AirMouse client
+make client
+# Or pass custom IP and flags:
+make client IP=192.168.5.126 ARGS="--sensitivity 40.0"
+```
+
+### Available Targets
+
+| Command | Description | Parameters & Defaults |
+| :--- | :--- | :--- |
+| `make esp` | Run firmware on ESP32-S3 via Jaguar | `DEVICE=` (optional device name or address) |
+| `make flash` | Flash Jaguar VM with Wi-Fi credentials | `WIFI_SSID`, `WIFI_PASSWORD`, `PORT=/dev/ttyACM0`, `CHIP=esp32s3`, `BAUD=921600` |
+| `make client` | Launch Python virtual mouse driver | `IP=192.168.5.126` (optional), `CLIENT_PORT=8889`, `ARGS=` |
+| `make compile` | Compile standalone `main.snapshot` | Output: `main.snapshot` |
+| `make scan` | Scan for online Jaguar devices | |
+| `make help` | Show target summary | |
+
+---
+
 ## Pipeline Features & Configuration
 
 All default tuning constants are defined in [client/config.py](file:///home/mai/Documents/FRI/L2/VIN/VIN%20PROJEKT/esp32-s3_airmouse/client/config.py):
