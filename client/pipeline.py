@@ -272,12 +272,188 @@ class AirMousePipeline:
         self.pot_max = pot_max
 
 
-        def calculate_effective_sensitivity(self, screen_pitch_rate, screen_yaw_rate):
-            motion_speed = math.sqrt(screen_pitch_rate * screen_pitch_rate + screen_yaw_rate * screen_yaw_rate)
-            if motion_speed > self.acceleration_threshold and self.acceleration_threshold > 0.0:
-                acceleration_multiplier = (motion_speed / self.acceleration_threshold) ** (self.acceleration_exponent - 1.0)
-                return self.sensitivity * (1.0 + self.acceleration_factor * acceleration_multiplier)
-            return self.sensitivity
+    def process_frame(self, unpacked_packet, timestamp, delta_time):
+        button_bitmask, raw_gyro, raw_accel, raw_potentiometer = self._parse_packet_fields(unpacked_packet)
+        self._update_potentiometer_sensitivity(raw_potentiometer)
+
+        is_clutch_active, is_left_click, is_right_click, is_slowdown_mode, is_click_held, is_gesture_active, raw_clutch_pressed = self._resolve_button_states(button_bitmask, timestamp)
+
+        gyroscope_uncalibrated, accelerometer = self._scale_sensor_readings(raw_gyro, raw_accel)
+        self._handle_clutch_gravity_alignment(is_clutch_active, accelerometer)
+
+        gyroscope = self._calibrate_and_filter_gyroscope(
+            gyroscope_uncalibrated, timestamp, is_clutch_active, is_slowdown_mode
+        )
+
+        effective_madgwick_beta = self.madgwick_filter.beta * (1.0 - self.madgwick_beta_sens_scale * self.potentiometer_ratio)
+        roll_radians = self.madgwick_filter.update(
+            gyroscope[0], gyroscope[1], gyroscope[2],
+            accelerometer[0], accelerometer[1], accelerometer[2],
+            delta_time,
+            beta_override=effective_madgwick_beta
+        )
+        screen_pitch_rate, screen_yaw_rate = self._project_gyroscope_rates(gyroscope[0], gyroscope[2], roll_radians)
+        is_pan_active = self._update_pan_activation_state(raw_clutch_pressed, timestamp, screen_pitch_rate, screen_yaw_rate)
+
+        if self.previous_pan_mode_active and not is_pan_active:
+            if self.post_pan_slowdown_enabled:
+                self.post_pan_slowdown.trigger(timestamp)
+        if is_pan_active:
+            self.post_pan_slowdown.reset()
+        self.previous_pan_mode_active = is_pan_active
+
+        effective_sensitivity = self.calculate_effective_sensitivity(screen_pitch_rate, screen_yaw_rate)
+        if is_slowdown_mode:
+            effective_sensitivity = self._apply_reposition_slowdown(effective_sensitivity, screen_pitch_rate, screen_yaw_rate)
+        else:
+            effective_sensitivity = self._apply_active_slowdown(effective_sensitivity, screen_pitch_rate, screen_yaw_rate)
+
+        if is_click_held and self.click_slowdown_enabled:
+            effective_sensitivity *= self.click_slowdown.calculate_multiplier(timestamp)
+        elif self.post_pan_slowdown.is_active:
+            effective_sensitivity *= self.post_pan_slowdown.calculate_multiplier(timestamp)
+
+        has_active_scroll = is_pan_active or (self.scroll_inertia_enabled and (abs(self.scroll_smooth_vel_x) > 0.001 or abs(self.scroll_smooth_vel_y) > 0.001))
+        if has_active_scroll and self.scroll_mode_enabled:
+            hi_res_x, hi_res_y, wheel_x, wheel_y = self._process_scroll_and_pan(is_pan_active, screen_pitch_rate, screen_yaw_rate, delta_time, timestamp)
+        else:
+            hi_res_x = 0
+            hi_res_y = 0
+            wheel_x = 0
+            wheel_y = 0
+
+        movement_x, movement_y = self._accumulate_subpixel_movement(
+            delta_x=-screen_yaw_rate * effective_sensitivity,
+            delta_y=-screen_pitch_rate * effective_sensitivity
+        )
+
+        return movement_x, movement_y, is_clutch_active, is_left_click, is_right_click, is_gesture_active, hi_res_x, hi_res_y, wheel_x, wheel_y, raw_clutch_pressed, is_pan_active
+
+    def _update_pan_activation_state(self, raw_clutch_pressed, timestamp, screen_pitch_rate, screen_yaw_rate):
+        if not raw_clutch_pressed:
+            self.clutch_hold_start_timestamp = None
+            self.is_pan_mode_active = False
+            self.pan_activation_failed_for_press = False
+            self.locked_pan_axis = None
+            self.pan_init_accum_x = 0.0
+            self.pan_init_accum_y = 0.0
+            return False
+
+        if self.pan_activation_failed_for_press:
+            return False
+
+        if self.is_pan_mode_active:
+            return True
+
+        if self.clutch_hold_start_timestamp is None:
+            self.clutch_hold_start_timestamp = timestamp
+
+        motion_speed = math.sqrt(screen_pitch_rate * screen_pitch_rate + screen_yaw_rate * screen_yaw_rate)
+        if motion_speed > self.pan_stillness_threshold:
+            self.pan_activation_failed_for_press = True
+            return False
+
+        hold_duration = timestamp - self.clutch_hold_start_timestamp
+        if hold_duration >= self.pan_activation_delay:
+            self.is_pan_mode_active = True
+
+        return self.is_pan_mode_active
+
+    def _parse_packet_fields(self, unpacked_packet):
+        if len(unpacked_packet) == 9:
+            _, button_bitmask, gx, gy, gz, ax, ay, az, pot = unpacked_packet
+        else:
+            _, button_bitmask, gx, gy, gz, ax, ay, az = unpacked_packet
+            pot = 0
+        return button_bitmask, (gx, gy, gz), (ax, ay, az), pot
+
+    def _update_potentiometer_sensitivity(self, raw_potentiometer):
+        self.raw_potentiometer = raw_potentiometer
+        self.potentiometer_ratio = min(1.0, max(0.0, raw_potentiometer / float(self.pot_max)))
+
+        centered_knob_position = 2.0 * self.potentiometer_ratio - 1.0
+        cubic_curve = centered_knob_position * centered_knob_position * centered_knob_position
+        exponent_scale = cubic_curve * self.pot_sens_range
+        self.sensitivity = self.base_sensitivity * (2.0 ** exponent_scale)
+
+    def _resolve_button_states(self, button_bitmask, timestamp):
+        raw_clutch_pressed = bool(button_bitmask & 0x01)
+        is_left_click = bool(button_bitmask & 0x02)
+        is_right_click = bool(button_bitmask & 0x04)
+        is_gesture_active = bool(button_bitmask & 0x08)
+
+        is_clutch_active = not raw_clutch_pressed if self.invert_clutch else raw_clutch_pressed
+        is_click_held = is_left_click or is_right_click
+
+        if is_click_held and self.click_slowdown_enabled:
+            if not self.previous_click_held:
+                self.click_slowdown.trigger(timestamp)
+        else:
+            self.click_slowdown.reset()
+
+        self.previous_click_held = is_click_held
+        is_slowdown_mode = not is_clutch_active
+
+        return is_clutch_active, is_left_click, is_right_click, is_slowdown_mode, is_click_held, is_gesture_active, raw_clutch_pressed
+
+    def trigger_click_slowdown(self, timestamp):
+        if self.click_slowdown_enabled:
+            self.click_slowdown.trigger(timestamp)
+
+    def _scale_sensor_readings(self, raw_gyro, raw_accel):
+        gyro_uncalibrated = (
+            raw_gyro[0] * GYRO_SCALE_RAD_PER_SEC,
+            raw_gyro[1] * GYRO_SCALE_RAD_PER_SEC,
+            raw_gyro[2] * GYRO_SCALE_RAD_PER_SEC
+        )
+        accelerometer = (
+            raw_accel[0] * ACCEL_SCALE_G,
+            raw_accel[1] * ACCEL_SCALE_G,
+            raw_accel[2] * ACCEL_SCALE_G
+        )
+        return gyro_uncalibrated, accelerometer
+
+    def _handle_clutch_gravity_alignment(self, is_clutch_active, accelerometer):
+        if self.previous_clutch_active is not None and is_clutch_active != self.previous_clutch_active:
+            self.madgwick_filter.align_to_gravity(accelerometer[0], accelerometer[1], accelerometer[2])
+        self.previous_clutch_active = is_clutch_active
+
+    def _calibrate_and_filter_gyroscope(self, gyro_uncalibrated, timestamp, is_clutch_active, is_slowdown_mode):
+        self.calibrator.update_bias_if_stationary(
+            gyro_uncalibrated[0], gyro_uncalibrated[1], gyro_uncalibrated[2], is_clutch_active
+        )
+        gx, gy, gz = self.calibrator.apply_bias_correction(
+            gyro_uncalibrated[0], gyro_uncalibrated[1], gyro_uncalibrated[2]
+        )
+
+        deadzone = self.deadzone_threshold if not is_slowdown_mode else max(self.deadzone_threshold, self.reposition_deadzone)
+        min_cutoff = self.minimum_cutoff_frequency if not is_slowdown_mode else self.reposition_min_cutoff
+
+        gx = apply_deadzone_filter(gx, deadzone)
+        gy = apply_deadzone_filter(gy, deadzone)
+        gz = apply_deadzone_filter(gz, deadzone)
+
+        gx = self.one_euro_filter_gyroscope_x.filter(gx, timestamp, min_cutoff=min_cutoff)
+        gy = self.one_euro_filter_gyroscope_y.filter(gy, timestamp, min_cutoff=min_cutoff)
+        gz = self.one_euro_filter_gyroscope_z.filter(gz, timestamp, min_cutoff=min_cutoff)
+
+        return gx, gy, gz
+
+    def _project_gyroscope_rates(self, gyroscope_x, gyroscope_z, roll_radians):
+        screen_pitch_rate = gyroscope_x * math.cos(roll_radians) - gyroscope_z * math.sin(roll_radians)
+        screen_yaw_rate = gyroscope_x * math.sin(roll_radians) + gyroscope_z * math.cos(roll_radians)
+        return screen_pitch_rate, screen_yaw_rate
+
+    def _calculate_base_sensitivity(self, potentiometer_ratio):
+        self.potentiometer_ratio = potentiometer_ratio
+        return self.base_sensitivity + (potentiometer_ratio * self.pot_sens_range)
+
+    def calculate_effective_sensitivity(self, screen_pitch_rate, screen_yaw_rate):
+        motion_speed = math.sqrt(screen_pitch_rate * screen_pitch_rate + screen_yaw_rate * screen_yaw_rate)
+        if motion_speed > self.acceleration_threshold and self.acceleration_threshold > 0.0:
+            acceleration_multiplier = (motion_speed / self.acceleration_threshold) ** (self.acceleration_exponent - 1.0)
+            return self.sensitivity * (1.0 + self.acceleration_factor * acceleration_multiplier)
+        return self.sensitivity
 
     def _apply_reposition_slowdown(self, effective_sensitivity, screen_pitch_rate, screen_yaw_rate):
         motion_speed = math.sqrt(screen_pitch_rate * screen_pitch_rate + screen_yaw_rate * screen_yaw_rate)

@@ -262,8 +262,7 @@ class StateTransitionSlowdown:
         if self.start_timestamp is None or not self.is_active:
             return False
         if elapsed >= self.duration_seconds or self.duration_seconds <= 0.0:
-            self.start_timestamp = None
-            self.is_active = False
+            self.reset()
             return True
         return False
 
