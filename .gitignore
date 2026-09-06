@@ -17,4 +17,5 @@ ENV/
 # Other
 deprecated/
 utils/config.toit
+scratch/
 
