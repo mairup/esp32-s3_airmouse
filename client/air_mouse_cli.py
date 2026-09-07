@@ -48,7 +48,9 @@ try:
         DEFAULT_INVERT_CLUTCH,
         DEFAULT_ACCEL_REJECTION_THRESHOLD,
         DEFAULT_MAX_ROLL_DEGREES,
+        DEFAULT_POT_MIN,
         DEFAULT_POT_MAX,
+        DEFAULT_INVERT_POTENTIOMETER,
         DEFAULT_MADGWICK_BETA,
         DEFAULT_MADGWICK_BETA_SENS_SCALE,
         DEFAULT_POT_SENS_RANGE,
@@ -99,7 +101,9 @@ except ImportError:
         DEFAULT_INVERT_CLUTCH,
         DEFAULT_ACCEL_REJECTION_THRESHOLD,
         DEFAULT_MAX_ROLL_DEGREES,
+        DEFAULT_POT_MIN,
         DEFAULT_POT_MAX,
+        DEFAULT_INVERT_POTENTIOMETER,
         DEFAULT_MADGWICK_BETA,
         DEFAULT_MADGWICK_BETA_SENS_SCALE,
         DEFAULT_POT_SENS_RANGE,
@@ -245,8 +249,10 @@ def parse_command_line_arguments():
     parser.add_argument("--madgwick-beta-sens-scale", type=float, default=DEFAULT_MADGWICK_BETA_SENS_SCALE, help=f"Reduce accel correction at high sensitivity (0=constant, 1=zero at max pot) (default: {DEFAULT_MADGWICK_BETA_SENS_SCALE})")
     parser.add_argument("--pot-sens-range", type=float, default=DEFAULT_POT_SENS_RANGE, help=f"Sensitivity spread across pot rotation; base*2^(cubic*range) (default: {DEFAULT_POT_SENS_RANGE})")
 
-    # Hardware clutch logic
     parser.add_argument("--normal-clutch", dest="invert_clutch", action="store_false", default=DEFAULT_INVERT_CLUTCH, help="Normal clutch logic (hold button to activate mouse)")
+    parser.add_argument("--normal-potentiometer", dest="invert_potentiometer", action="store_false", default=DEFAULT_INVERT_POTENTIOMETER, help="Use non-inverted potentiometer direction")
+    parser.add_argument("--invert-potentiometer", dest="invert_potentiometer", action="store_true", default=DEFAULT_INVERT_POTENTIOMETER, help="Invert potentiometer direction")
+    parser.add_argument("--pot-min", type=int, default=DEFAULT_POT_MIN, help=f"Raw potentiometer minimum value from hardware (default: {DEFAULT_POT_MIN})")
     parser.add_argument("--pot-max", type=int, default=DEFAULT_POT_MAX, help=f"Raw potentiometer maximum value from hardware (default: {DEFAULT_POT_MAX})")
     return parser.parse_args()
 
@@ -369,7 +375,7 @@ def display_streaming_status(pipeline, packet_counter, start_time, is_active, la
         f"   Left Button:     {'DOWN' if last_left_click else 'UP'}\n"
         f"   Right Button:    {'DOWN' if last_right_click else 'UP'}\n"
         f"   Gesture Button:  {'DOWN' if is_gesture else 'UP'}\n"
-        f"   Clutch Pin:      {'PRESSED' if raw_clutch_pressed else 'RELEASED'}\n"
+        f"   Clutch Button:   {'PRESSED' if raw_clutch_pressed else 'RELEASED'}\n"
         "==============================================================================\n"
         " Press Ctrl+C to exit\n"
     )
@@ -426,7 +432,9 @@ def run_air_mouse_cli():
         reposition_slowdown_exp=arguments.reposition_slowdown_exp,
         accel_rejection_threshold=arguments.accel_rejection_thresh,
         max_roll_degrees=arguments.max_roll_deg,
+        pot_min=arguments.pot_min,
         pot_max=arguments.pot_max,
+        invert_potentiometer=arguments.invert_potentiometer,
         madgwick_beta=arguments.madgwick_beta,
         madgwick_beta_sens_scale=arguments.madgwick_beta_sens_scale,
         pot_sens_range=arguments.pot_sens_range,

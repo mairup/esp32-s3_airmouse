@@ -15,9 +15,9 @@ GYRO_SCALE_RAD_PER_SEC = 0.000305432619
 # Fixed sensor property.
 ACCEL_SCALE_G = 0.000122
 
-# Maximum raw potentiometer value received from the ESP32.
-# theoretical max = 3 * 4095 ≈ 12800. Override via --pot-max if hardware differs.
-DEFAULT_POT_MAX = 12800
+# Raw potentiometer ADC range received from the ESP32 (12-bit ADC: 0 to 4095).
+DEFAULT_POT_MIN = 0
+DEFAULT_POT_MAX = 4095
 
 
 
@@ -34,6 +34,10 @@ DEFAULT_BASE_SENSITIVITY = 50.0
 # At 50% pot the result is always base_sensitivity regardless of this value.
 # Range: 0.5 to 5.0 (Default: 3.5)
 DEFAULT_POT_SENS_RANGE = 3.5
+
+# Controls whether the potentiometer direction is inverted.
+# Set to True if turning clockwise decreases sensitivity.
+DEFAULT_INVERT_POTENTIOMETER = True
 
 # Minimum angular velocity (rad/s) required to initiate pointer movement.
 # Eliminates resting hand tremors; higher values add start-motion resistance.

@@ -48,7 +48,9 @@ try:
         DEFAULT_INVERT_CLUTCH,
         DEFAULT_ACCEL_REJECTION_THRESHOLD,
         DEFAULT_MAX_ROLL_DEGREES,
+        DEFAULT_POT_MIN,
         DEFAULT_POT_MAX,
+        DEFAULT_INVERT_POTENTIOMETER,
         DEFAULT_MADGWICK_BETA,
         DEFAULT_MADGWICK_BETA_SENS_SCALE,
         DEFAULT_POT_SENS_RANGE,
@@ -107,7 +109,9 @@ except ImportError:
         DEFAULT_INVERT_CLUTCH,
         DEFAULT_ACCEL_REJECTION_THRESHOLD,
         DEFAULT_MAX_ROLL_DEGREES,
+        DEFAULT_POT_MIN,
         DEFAULT_POT_MAX,
+        DEFAULT_INVERT_POTENTIOMETER,
         DEFAULT_MADGWICK_BETA,
         DEFAULT_MADGWICK_BETA_SENS_SCALE,
         DEFAULT_POT_SENS_RANGE,
@@ -160,7 +164,9 @@ class AirMousePipeline:
         reposition_slowdown_exp=DEFAULT_REPOSITION_SLOWDOWN_EXP,
         accel_rejection_threshold=DEFAULT_ACCEL_REJECTION_THRESHOLD,
         max_roll_degrees=DEFAULT_MAX_ROLL_DEGREES,
+        pot_min=DEFAULT_POT_MIN,
         pot_max=DEFAULT_POT_MAX,
+        invert_potentiometer=DEFAULT_INVERT_POTENTIOMETER,
         madgwick_beta=DEFAULT_MADGWICK_BETA,
         madgwick_beta_sens_scale=DEFAULT_MADGWICK_BETA_SENS_SCALE,
         pot_sens_range=DEFAULT_POT_SENS_RANGE,
@@ -269,7 +275,9 @@ class AirMousePipeline:
         self.subpixel_accumulator_y = 0.0
         self.raw_potentiometer = 0
         self.potentiometer_ratio = 0.5
+        self.pot_min = pot_min
         self.pot_max = pot_max
+        self.invert_potentiometer = invert_potentiometer
 
 
     def process_frame(self, unpacked_packet, timestamp, delta_time):
@@ -367,9 +375,15 @@ class AirMousePipeline:
             pot = 0
         return button_bitmask, (gx, gy, gz), (ax, ay, az), pot
 
+    def _calculate_potentiometer_ratio(self, raw_potentiometer):
+        pot_range = float(self.pot_max - self.pot_min) if self.pot_max != self.pot_min else 1.0
+        normalized = (raw_potentiometer - self.pot_min) / pot_range
+        ratio = min(1.0, max(0.0, normalized))
+        return 1.0 - ratio if self.invert_potentiometer else ratio
+
     def _update_potentiometer_sensitivity(self, raw_potentiometer):
         self.raw_potentiometer = raw_potentiometer
-        self.potentiometer_ratio = min(1.0, max(0.0, raw_potentiometer / float(self.pot_max)))
+        self.potentiometer_ratio = self._calculate_potentiometer_ratio(raw_potentiometer)
 
         centered_knob_position = 2.0 * self.potentiometer_ratio - 1.0
         cubic_curve = centered_knob_position * centered_knob_position * centered_knob_position
