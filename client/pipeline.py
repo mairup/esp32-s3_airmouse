@@ -6,6 +6,7 @@ try:
         AutoZeroBiasCalibrator,
         StateTransitionSlowdown,
         apply_deadzone_filter,
+        FlickDetector,
     )
     from .config import (
         GYRO_SCALE_RAD_PER_SEC,
@@ -59,6 +60,10 @@ try:
         DEFAULT_SCROLL_SMOOTHING_ALPHA,
         DEFAULT_SCROLL_INERTIA_ENABLED,
         DEFAULT_SCROLL_INERTIA_DECAY,
+        DEFAULT_FLICK_ENABLED,
+        DEFAULT_FLICK_THRESHOLD_RAD_PER_SEC,
+        DEFAULT_FLICK_COOLDOWN_SECONDS,
+        DEFAULT_GESTURE_SUPPRESS_CURSOR,
     )
 except ImportError:
     from filters import (
@@ -67,6 +72,7 @@ except ImportError:
         AutoZeroBiasCalibrator,
         StateTransitionSlowdown,
         apply_deadzone_filter,
+        FlickDetector,
     )
     from config import (
         GYRO_SCALE_RAD_PER_SEC,
@@ -120,6 +126,10 @@ except ImportError:
         DEFAULT_SCROLL_SMOOTHING_ALPHA,
         DEFAULT_SCROLL_INERTIA_ENABLED,
         DEFAULT_SCROLL_INERTIA_DECAY,
+        DEFAULT_FLICK_ENABLED,
+        DEFAULT_FLICK_THRESHOLD_RAD_PER_SEC,
+        DEFAULT_FLICK_COOLDOWN_SECONDS,
+        DEFAULT_GESTURE_SUPPRESS_CURSOR,
     )
 
 
@@ -175,6 +185,10 @@ class AirMousePipeline:
         scroll_smoothing_alpha=DEFAULT_SCROLL_SMOOTHING_ALPHA,
         scroll_inertia_enabled=DEFAULT_SCROLL_INERTIA_ENABLED,
         scroll_inertia_decay=DEFAULT_SCROLL_INERTIA_DECAY,
+        flick_enabled=DEFAULT_FLICK_ENABLED,
+        flick_threshold=DEFAULT_FLICK_THRESHOLD_RAD_PER_SEC,
+        flick_cooldown=DEFAULT_FLICK_COOLDOWN_SECONDS,
+        gesture_suppress_cursor=DEFAULT_GESTURE_SUPPRESS_CURSOR,
     ):
         self.base_sensitivity = sensitivity
         self.sensitivity = sensitivity
@@ -278,6 +292,13 @@ class AirMousePipeline:
         self.pot_min = pot_min
         self.pot_max = pot_max
         self.invert_potentiometer = invert_potentiometer
+        self.flick_enabled = flick_enabled
+        self.gesture_suppress_cursor = gesture_suppress_cursor
+        self.flick_detector = FlickDetector(
+            threshold_rad_per_sec=flick_threshold,
+            cooldown_seconds=flick_cooldown
+        )
+
 
 
     def process_frame(self, unpacked_packet, timestamp, delta_time):
@@ -330,12 +351,35 @@ class AirMousePipeline:
             wheel_x = 0
             wheel_y = 0
 
-        movement_x, movement_y = self._accumulate_subpixel_movement(
-            delta_x=-screen_yaw_rate * effective_sensitivity,
-            delta_y=-screen_pitch_rate * effective_sensitivity
+        flick_direction = self._detect_flick(screen_yaw_rate, is_gesture_active, timestamp)
+
+        if self._should_suppress_cursor(is_gesture_active, timestamp):
+            movement_x = 0
+            movement_y = 0
+        else:
+            movement_x, movement_y = self._accumulate_subpixel_movement(
+                delta_x=-screen_yaw_rate * effective_sensitivity,
+                delta_y=-screen_pitch_rate * effective_sensitivity
+            )
+
+        return (
+            movement_x, movement_y, is_clutch_active, is_left_click, is_right_click,
+            is_gesture_active, hi_res_x, hi_res_y, wheel_x, wheel_y,
+            raw_clutch_pressed, is_pan_active, flick_direction
         )
 
-        return movement_x, movement_y, is_clutch_active, is_left_click, is_right_click, is_gesture_active, hi_res_x, hi_res_y, wheel_x, wheel_y, raw_clutch_pressed, is_pan_active
+    def _detect_flick(self, screen_yaw_rate, is_gesture_active, timestamp):
+        if not self.flick_enabled:
+            return None
+        return self.flick_detector.update(screen_yaw_rate, is_gesture_active, timestamp)
+
+    def _should_suppress_cursor(self, is_gesture_active, timestamp):
+        if not self.gesture_suppress_cursor:
+            return False
+        if is_gesture_active:
+            return True
+        is_post_flick = (timestamp - self.flick_detector.last_trigger_timestamp) < 0.15
+        return is_post_flick
 
     def _update_pan_activation_state(self, raw_clutch_pressed, timestamp, screen_pitch_rate, screen_yaw_rate):
         if not raw_clutch_pressed:

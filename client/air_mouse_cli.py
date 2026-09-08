@@ -59,6 +59,10 @@ try:
         DEFAULT_SCROLL_SMOOTHING_ALPHA,
         DEFAULT_SCROLL_INERTIA_ENABLED,
         DEFAULT_SCROLL_INERTIA_DECAY,
+        DEFAULT_FLICK_ENABLED,
+        DEFAULT_FLICK_THRESHOLD_RAD_PER_SEC,
+        DEFAULT_FLICK_COOLDOWN_SECONDS,
+        DEFAULT_GESTURE_SUPPRESS_CURSOR,
     )
 except ImportError:
     from pipeline import AirMousePipeline
@@ -112,6 +116,10 @@ except ImportError:
         DEFAULT_SCROLL_SMOOTHING_ALPHA,
         DEFAULT_SCROLL_INERTIA_ENABLED,
         DEFAULT_SCROLL_INERTIA_DECAY,
+        DEFAULT_FLICK_ENABLED,
+        DEFAULT_FLICK_THRESHOLD_RAD_PER_SEC,
+        DEFAULT_FLICK_COOLDOWN_SECONDS,
+        DEFAULT_GESTURE_SUPPRESS_CURSOR,
     )
 
 
@@ -126,10 +134,25 @@ def create_virtual_mouse_device():
                 e.REL_WHEEL, e.REL_HWHEEL,
                 e.REL_WHEEL_HI_RES, e.REL_HWHEEL_HI_RES
             ],
-            e.EV_KEY: [e.BTN_LEFT, e.BTN_RIGHT, e.BTN_MIDDLE]
+            e.EV_KEY: [
+                e.BTN_LEFT, e.BTN_RIGHT, e.BTN_MIDDLE,
+                e.BTN_SIDE, e.BTN_EXTRA
+            ]
         },
         name="AirMouse-Virtual-Mouse"
     )
+
+
+def emit_flick_button(virtual_mouse_device, flick_direction):
+    if not flick_direction:
+        return
+    button_code = e.BTN_SIDE if flick_direction == "left" else e.BTN_EXTRA
+    virtual_mouse_device.write(e.EV_KEY, button_code, 1)
+    virtual_mouse_device.syn()
+    time.sleep(0.02)
+    virtual_mouse_device.write(e.EV_KEY, button_code, 0)
+    virtual_mouse_device.syn()
+
 
 
 def emit_relative_mouse_movement(virtual_mouse_device, movement_x, movement_y):
@@ -254,6 +277,11 @@ def parse_command_line_arguments():
     parser.add_argument("--invert-potentiometer", dest="invert_potentiometer", action="store_true", default=DEFAULT_INVERT_POTENTIOMETER, help="Invert potentiometer direction")
     parser.add_argument("--pot-min", type=int, default=DEFAULT_POT_MIN, help=f"Raw potentiometer minimum value from hardware (default: {DEFAULT_POT_MIN})")
     parser.add_argument("--pot-max", type=int, default=DEFAULT_POT_MAX, help=f"Raw potentiometer maximum value from hardware (default: {DEFAULT_POT_MAX})")
+
+    parser.add_argument("--no-flick", dest="flick_enabled", action="store_false", default=DEFAULT_FLICK_ENABLED, help="Disable gesture flick detection")
+    parser.add_argument("--flick-threshold", type=float, default=DEFAULT_FLICK_THRESHOLD_RAD_PER_SEC, help=f"Flick angular speed threshold rad/s (default: {DEFAULT_FLICK_THRESHOLD_RAD_PER_SEC})")
+    parser.add_argument("--flick-cooldown", type=float, default=DEFAULT_FLICK_COOLDOWN_SECONDS, help=f"Flick cooldown window in seconds (default: {DEFAULT_FLICK_COOLDOWN_SECONDS})")
+    parser.add_argument("--no-gesture-suppress-cursor", dest="gesture_suppress_cursor", action="store_false", default=DEFAULT_GESTURE_SUPPRESS_CURSOR, help="Allow cursor movement while holding gesture button")
     return parser.parse_args()
 
 
@@ -331,7 +359,7 @@ def update_mouse_button_states(virtual_mouse_device, is_left_click, is_right_cli
     return is_left_click, is_right_click
 
 
-def display_streaming_status(pipeline, packet_counter, start_time, is_active, last_left_click, last_right_click, is_gesture=False, raw_clutch_pressed=False, is_pan_active=False, is_connected=True, target_ip="", target_port=0):
+def display_streaming_status(pipeline, packet_counter, start_time, is_active, last_left_click, last_right_click, is_gesture=False, raw_clutch_pressed=False, is_pan_active=False, is_connected=True, target_ip="", target_port=0, last_flick_direction=None, last_flick_time=0.0, current_time=0.0):
     elapsed = time.monotonic() - start_time
     packet_rate = packet_counter / elapsed if (elapsed > 0 and is_connected) else 0.0
     pot_val = pipeline.raw_potentiometer if pipeline else 0
@@ -341,6 +369,9 @@ def display_streaming_status(pipeline, packet_counter, start_time, is_active, la
     if not is_connected:
         current_mode_str = "DISCONNECTED"
         status_banner = f"SEARCHING (Waiting for {target_ip}:{target_port}...)"
+    elif (current_time - last_flick_time) < 0.8 and last_flick_direction:
+        current_mode_str = f"FLICK-{last_flick_direction.upper()}"
+        status_banner = f"STREAMING ({target_ip}:{target_port})"
     elif is_pan_active:
         if pipeline.locked_pan_axis:
             current_mode_str = f"PAN-{pipeline.locked_pan_axis.upper()}"
@@ -376,6 +407,7 @@ def display_streaming_status(pipeline, packet_counter, start_time, is_active, la
         f"   Right Button:    {'DOWN' if last_right_click else 'UP'}\n"
         f"   Gesture Button:  {'DOWN' if is_gesture else 'UP'}\n"
         f"   Clutch Button:   {'PRESSED' if raw_clutch_pressed else 'RELEASED'}\n"
+        f"   Last Gesture:    {last_flick_direction.upper() if (current_time - last_flick_time) < 1.2 and last_flick_direction else 'NONE'}\n"
         "==============================================================================\n"
         " Press Ctrl+C to exit\n"
     )
@@ -442,6 +474,10 @@ def run_air_mouse_cli():
         scroll_smoothing_alpha=arguments.scroll_alpha,
         scroll_inertia_enabled=arguments.scroll_inertia_enabled,
         scroll_inertia_decay=arguments.scroll_inertia_decay,
+        flick_enabled=arguments.flick_enabled,
+        flick_threshold=arguments.flick_threshold,
+        flick_cooldown=arguments.flick_cooldown,
+        gesture_suppress_cursor=arguments.gesture_suppress_cursor,
     )
 
     running = True
@@ -460,6 +496,8 @@ def run_air_mouse_cli():
     status_print_time = 0.0
     last_left_click = False
     last_right_click = False
+    last_flick_direction = None
+    last_flick_time = 0.0
     is_active = False
     is_gesture = False
     raw_clutch = False
@@ -494,7 +532,7 @@ def run_air_mouse_cli():
                     delta_time = calculate_packet_delta_time(current_time, last_packet_timestamp)
                     last_packet_timestamp = current_time
 
-                    movement_x, movement_y, is_active, is_left, is_right, is_gesture, hi_res_x, hi_res_y, wheel_x, wheel_y, raw_clutch, is_pan_active = pipeline.process_frame(unpacked_packet, current_time, delta_time)
+                    movement_x, movement_y, is_active, is_left, is_right, is_gesture, hi_res_x, hi_res_y, wheel_x, wheel_y, raw_clutch, is_pan_active, flick_direction = pipeline.process_frame(unpacked_packet, current_time, delta_time)
 
                     is_axis_locked = pipeline.locked_pan_axis is not None
                     current_led_bitmask = (1 if is_pan_active else 0) | (2 if is_axis_locked else 0)
@@ -512,6 +550,11 @@ def run_air_mouse_cli():
                         virtual_mouse_device, is_left, is_right, is_gesture, last_left_click, last_right_click, pipeline, current_time
                     )
 
+                    if flick_direction:
+                        last_flick_direction = flick_direction
+                        last_flick_time = current_time
+                        emit_flick_button(virtual_mouse_device, flick_direction)
+
                     if hi_res_x != 0 or hi_res_y != 0 or wheel_x != 0 or wheel_y != 0:
                         emit_scroll_movement(virtual_mouse_device, hi_res_x, hi_res_y, wheel_x, wheel_y)
                     emit_relative_mouse_movement(virtual_mouse_device, movement_x, movement_y)
@@ -524,6 +567,8 @@ def run_air_mouse_cli():
                         virtual_mouse_device.write(e.EV_KEY, e.BTN_LEFT, 0)
                         virtual_mouse_device.write(e.EV_KEY, e.BTN_RIGHT, 0)
                         virtual_mouse_device.write(e.EV_KEY, e.BTN_MIDDLE, 0)
+                        virtual_mouse_device.write(e.EV_KEY, e.BTN_SIDE, 0)
+                        virtual_mouse_device.write(e.EV_KEY, e.BTN_EXTRA, 0)
                         virtual_mouse_device.syn()
                     except Exception:
                         pass
@@ -537,7 +582,8 @@ def run_air_mouse_cli():
                 display_streaming_status(
                     pipeline, packet_counter, start_time, is_active,
                     last_left_click, last_right_click, is_gesture, raw_clutch, is_pan_active,
-                    is_connected=is_connected, target_ip=arguments.ip_address, target_port=arguments.port
+                    is_connected=is_connected, target_ip=arguments.ip_address, target_port=arguments.port,
+                    last_flick_direction=last_flick_direction, last_flick_time=last_flick_time, current_time=current_time
                 )
                 status_print_time = current_time
 
@@ -550,6 +596,8 @@ def run_air_mouse_cli():
                 virtual_mouse_device.write(e.EV_KEY, e.BTN_LEFT, 0)
                 virtual_mouse_device.write(e.EV_KEY, e.BTN_RIGHT, 0)
                 virtual_mouse_device.write(e.EV_KEY, e.BTN_MIDDLE, 0)
+                virtual_mouse_device.write(e.EV_KEY, e.BTN_SIDE, 0)
+                virtual_mouse_device.write(e.EV_KEY, e.BTN_EXTRA, 0)
                 virtual_mouse_device.syn()
         except Exception:
             pass

@@ -260,3 +260,13 @@ DEFAULT_MADGWICK_BETA = 0.9
 # 0.0 = beta is constant regardless of pot; 1.0 = beta reaches 0 at maximum pot.
 # Range: 0.0 to 1.0 (Default: 0.0)
 DEFAULT_MADGWICK_BETA_SENS_SCALE = 0.0
+
+
+# ==============================================================================
+# 10. GESTURE FLICK (Back / Forward)
+# ==============================================================================
+DEFAULT_FLICK_ENABLED = True
+DEFAULT_FLICK_THRESHOLD_RAD_PER_SEC = 2.0
+DEFAULT_FLICK_COOLDOWN_SECONDS = 0.40
+DEFAULT_GESTURE_SUPPRESS_CURSOR = False
+

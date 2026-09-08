@@ -8,6 +8,8 @@ try:
         DEFAULT_ACCEL_REJECTION_THRESHOLD,
         DEFAULT_MAX_ROLL_DEGREES,
         DEFAULT_DEADZONE_THRESHOLD,
+        DEFAULT_FLICK_THRESHOLD_RAD_PER_SEC,
+        DEFAULT_FLICK_COOLDOWN_SECONDS,
     )
 except ImportError:
     from config import (
@@ -17,6 +19,8 @@ except ImportError:
         DEFAULT_ACCEL_REJECTION_THRESHOLD,
         DEFAULT_MAX_ROLL_DEGREES,
         DEFAULT_DEADZONE_THRESHOLD,
+        DEFAULT_FLICK_THRESHOLD_RAD_PER_SEC,
+        DEFAULT_FLICK_COOLDOWN_SECONDS,
     )
 
 
@@ -265,4 +269,36 @@ class StateTransitionSlowdown:
             self.reset()
             return True
         return False
+
+
+class FlickDetector:
+    def __init__(
+        self,
+        threshold_rad_per_sec=DEFAULT_FLICK_THRESHOLD_RAD_PER_SEC,
+        cooldown_seconds=DEFAULT_FLICK_COOLDOWN_SECONDS,
+    ):
+        self.threshold = float(threshold_rad_per_sec)
+        self.cooldown_duration = float(cooldown_seconds)
+        self.last_trigger_timestamp = 0.0
+
+    def update(self, angular_rate, is_gesture_active, timestamp):
+        if not is_gesture_active:
+            return None
+
+        if (timestamp - self.last_trigger_timestamp) < self.cooldown_duration:
+            return None
+
+        if angular_rate > self.threshold:
+            self.last_trigger_timestamp = timestamp
+            return "left"
+
+        if angular_rate < -self.threshold:
+            self.last_trigger_timestamp = timestamp
+            return "right"
+
+        return None
+
+    def reset(self):
+        self.last_trigger_timestamp = 0.0
+
 
