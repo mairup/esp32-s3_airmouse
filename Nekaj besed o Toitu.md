@@ -45,4 +45,4 @@ Glede hitrosti tudi nimam dejanskih meritev. Za našo uporabo je bil dovolj hite
 
 Uporaba jezika Toit in njegovega razvojnega okolja se je izkazala za uspešno. Med razvojem projekta sem pogosto opazil, kako nam izbrano okolje zelo pomaga pri danem problemu, ki bi bil v drugem okolju verjetno veliko zahtevnejši. Rezultat pa je (meni) zanimiv projekt, razvit v razmeroma kratkem času z majhnim številom razvijalcev.
 
-**Napisal:** Mai Rupnik
+*Avtor: Mai Rupnik*

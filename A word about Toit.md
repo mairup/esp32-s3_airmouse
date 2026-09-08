@@ -45,5 +45,4 @@ Regarding performance, I also do not have exact benchmarks. For our use case, it
 
 Using the Toit language and its development environment proved to be a success. Throughout project development, I frequently noticed how much the chosen ecosystem helped solve problems that would likely have been considerably more demanding in other environments. The end result is (in my opinion) an exciting project developed in a relatively short timeframe by a small team of developers.
 
-
-**Written by:** Mai Rupnik, *computer-assisted translation*
+*Author: Mai Rupnik, translated*

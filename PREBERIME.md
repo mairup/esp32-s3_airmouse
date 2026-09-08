@@ -1,7 +1,5 @@
 # ESP32-S3 AirMouse - Poročilo
 
-**Avtorja:** Laris Pintar, Mai Rupnik
-
 ---
 
 ## 1. Uvod
@@ -68,11 +66,13 @@ Vsa Firmware je napisan v jeziku Toit, visokonivojskem jeziku za mikrokrmilnike 
 
 ### 4.3 Obdelava podatkov (Python na računalniku)
 
-Program prejme UDP pakete in v treh korakih izračuna premik kazalca:
+Program sprejema UDP pakete ESP32 strežnika in jih s pomočjo raznih filtrov in drugih efektov spremeni v odzivne in uporabniku prilagojene premike kazalca.
 
-1. **Kalibracija in mrtva cona:** ko roka miruje, program sproti prilagaja začetno vrednost žiroskopa, da se napaka zaradi odnašanja(»Gyroscope Drift«) ne kopiči. Drobne tresljaje, ki so pod nastavljeno mejo se ignorira, zato da kazalec na zaslonu pri mirovanju ne »pleše«
-2. **Filtriranje:** vsako os žiroskopa obdeluje 1-Euro filter: pri počasnem gibanju močno zgladi tresenje, pri hitrih premikih pa se samodejno prilagodi in odpre, da ne povzroča zamika. Hkrati Madgwickov filter združi podatke žiroskopa in pospeškometra ter izračuna naklon roke, ki nam pomaga, da tudi če držimo napravo nekoliko postrani, bo delovala kot, da bi bila ševedno obrnjena pravilno.
-3. **Preslikava v piksle:** kotno hitrost pomnoži z občutljivostjo, ki jo sproti nastavljaš s potenciometrom in jo pretvori v relativni premik kazalca. Vsi teji podatki so nato predstavljeni kot premikanje miške po zaslonu.
+Da so sami premiki kazalca lepo tekoči (in ne skakajoči), hkrati pa odzivni na uporabnikove premike, skrbita 1-Euro in Madgwickov filter.
+
+Filtrirane vrednosti se s pomočjo rotacijske matrike projicirajo na ravnino 2D zaslona glede na trenutni nagib roke (roll), ki ga določa Madgwickov filter, dobljeni odmik pa se pretvori v premik kazalca.
+
+Ko roka miruje, program sproti prilagaja začetno vrednost žiroskopa, da se napaka zaradi odnašanja(»Gyroscope Drift«) ne kopiči. Drobne tresljaje, ki so pod nastavljeno mejo se ignorira, zato da kazalec na zaslonu pri mirovanju ne »pleše«. Temu pravimo mrtva cona (angl. "deadzone").
 
 ### 4.4 Načini delovanja
 
@@ -93,11 +93,33 @@ Slika prikazuje terminal na odjemalčevi strain, ki prikazuje use aktualne infor
 
 ### 4.5 Indikacija stanja z LED diodami
 
-Naprava ima sedem LED diod, ki uporabniku sproti sporočajo stanje sistema. Dve se prižgeta ob držanju levega oziroma desnega klika, rumena pa sveti, kadar obdelava podatkov na mikroprocesorju preseže časovni proračun (več kot 2,4 ms na vzorec), kar pomeni preobremenitev. RGB dioda prikazuje stanje povezave Wi-Fi: oranžna med zagonom, modra med čakanjem na odjemalca, zelena, ko je povezava z računalnikom vzpostavljena in rdeča ob napaki. Dve diodi (pan in zaklep osi) pa prižge program na računalniku. Med gesto za kalibracijo RGB dioda sveti vijolično, po uspešni ponovni kalibraciji pa utripa zeleno.
+Naprava ima 6 LED diod, ki uporabniku sproti sporočajo stanje sistema. Glavna je RGB dioda, s katero naprava prikazuje stanje povezave Wi-Fi: oranžna med zagonom, modra med čakanjem na odjemalca, zelena, ko je povezava z računalnikom vzpostavljena in rdeča ob napaki. Med gesto za kalibracijo RGB dioda sveti vijolično, po uspešni ponovni kalibraciji pa 5-krat utripne z zeleno barvo.
+
+Poleg tega imamo še 5 enobarvnih LED diod. Te uporabniku sporočajo različne signale. Rdeča ob mikrokontrolerju sporoča visoko zasedenost procesorja, zelena in rumena na koncu daljinca prikazujeta stanje pri načinu drsanja po vsebini. Gumba za levi in desni klik imata vsak svojo LED diodo, ki prikazuje njuno stanje.
+
+*Avtor: Laris Pintar*
 
 ---
 
 ## 5. Povezave in posnetki:
 
+- [Spletno interaktivno poročilo in dokumentacija (SLO/EN)](https://esp-demo.mairup.space/docs/)
+- [Interaktivna demonstracija v brskalniku (Live Demo)](https://esp-demo.mairup.space/)
 - [Github repozitorij](https://github.com/mairup/esp32-s3_airmouse)
-- Posnetek delovanja
+
+### Posnetki delovanja:
+
+- **Zagon naprave in Wi-Fi povezava:** [`startup.mp4`](../vids/startup.mp4) — prikaz inicializacije sistema in LED indikatorjev ob povezovanju. 
+**(Če ste pozorni, lahko za nekaj sto ms opazite stanje oglaševanja Wi-Fi strežnika, prikazano na RGB LED diodi v modri barvi. V tem času se esp strežnik in računalnik odjemalec sinhronizirata. Takoj za tem, ko RGB LED dioda spremeni barvo v zeleno, je naprava pripravljena na uporabo.)**
+
+- **Kalibracija žiroskopa:** [`calibration.mp4`](../vids/calibration.mp4) — postopek rekalibracije z gesto (vijolična LED in potrditveni zeleni utripi).
+- **Prilagajanje občutljivosti (potenciometer):** [`sensitivity-scaling.mp4`](../vids/sensitivity-scaling.mp4) — dinamično prilagajanje hitrosti/občutljivosti kazalca z analognim potenciometrom.
+- **Splošna navigacija kazalca:** [`use-example-1.mp4`](../vids/use-example-1.mp4) — osnovno upravljanje kazalca s premiki roke po zaslonu.
+- **Upočasnitev kazalca ob kliku:** [`pointer-slowdown-on-click.mp4`](../vids/pointer-slowdown-on-click.mp4) — stabilizacija in zmanjšanje občutljivosti ob pritisku klika za natančno ciljanje.
+- **Stabilizacija klika na prostem območju:** [`pointer-slowdown-on-click-free-area.mp4`](../vids/pointer-slowdown-on-click-free-area.mp4) — demonstracija mirovanja kazalca med zaporednimi kliki na prazni površini.
+- **Dvojni klik:** [`double-click.mp4`](../vids/double-click.mp4) — izvedba dvojnega klika s hkratnim držanjem gumba za gesto in levega klika.
+- **Vlečenje in spuščanje (Drag & Drop):** [`drag-and-drop-tiles.mp4`](../vids/drag-and-drop-tiles.mp4) — prestavljanje elementov z držanjem gumba in premikom roke.
+- **Navpični pomik po vsebini (Vertical Scroll):** [`vertical-scroll.mp4`](../vids/vertical-scroll.mp4) — drsanje navzgor in navzdol v načinu pomika.
+- **Vodoravni pomik po vsebini (Horizontal Scroll):** [`horizontal-scroll.mp4`](../vids/horizontal-scroll.mp4) — stransko drsanje po širokih vsebinah.
+- **Pomik po vsebini z zaklepom osi:** [`area-scroll-with-axis-lock.mp4`](../vids/area-scroll-with-axis-lock.mp4) — 2D pomik z zaklepom primarne smeri gibanja.
+- **Navigacija nazaj in naprej:** [`back-and-forward-navigation.mp4`](../vids/back-and-forward-navigation.mp4) — gesti za brskanje nazaj in naprej s sunkom roke v levo ali desno ob pritisku gumba za geste.
