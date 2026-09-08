@@ -89,7 +89,7 @@ Ko roka miruje, program sproti prilagaja začetno vrednost žiroskopa, da se nap
 
 ![Terminal na odjemalčevi strani](img/terminal_monitor.png)
 
-Slika prikazuje terminal na odjemalčevi strain, ki prikazuje use aktualne informacije o napravi.
+Slika prikazuje terminal na odjemalčevi strani, ki prikazuje vse aktualne informacije o napravi.
 
 ### 4.5 Indikacija stanja z LED diodami
 
