@@ -1,108 +1,105 @@
-# ESP32-S3 Air Mouse
+# ESP32-S3 AirMouse - Report
 
-Low-latency wireless air mouse system with subpixel kinetic scrolling, dynamic click stabilization, and 6-DoF inertial motion tracking.
+**Authors:** Laris Pintar, Mai Rupnik
 
-The system consists of two primary components:
-- **Firmware (`Toit`)**: Runs on an ESP32-S3 microcontroller, streaming raw IMU, button, and potentiometer data over UDP at 208 Hz.
-- **Client (`Python`)**: Runs on the host computer, processing telemetry through adaptive filters and injecting relative cursor and high-resolution scroll events via Linux `uinput`.
+**Written by:** Laris Pintar, *computer-assisted translation*
 
 ---
 
-## Architecture Overview
+## 1. Introduction
 
-```
-                      +-----------------------------+
-                      |   LSM6DSOX 6-DoF IMU        |
-                      |   (I2C, 208 Hz Data-Ready)  |
-                      +--------------+--------------+
-                                     |
-                                     v
-+------------------------------------+------------------------------------+
-|  ESP32-S3 Firmware (Toit)                                               |
-|  - ImuPipeline: Burst reads 12 bytes IMU data on GPIO interrupt         |
-|  - ButtonManager: Debounces clutch, left, right, and gesture inputs     |
-|  - PotentiometerManager: Samples analog sensitivity potentiometer       |
-|  - WifiServer: Streams 17-byte binary UDP datagrams to client           |
-+------------------------------------+------------------------------------+
-                                     |
-                                     | UDP (Wi-Fi)
-                                     v
-+------------------------------------+------------------------------------+
-|  Host Driver (Python / evdev)                                           |
-|  - AirMousePipeline:                                                    |
-|      * 1-Euro Filter: Jitter dampening & lag reduction                  |
-|      * Madgwick Filter: Roll-compensated horizon alignment              |
-|      * Dynamic Click Slowdown: Eliminates cursor jitter during clicks   |
-|      * Pan / Scroll Engine: Subpixel smooth scrolling & axis locking    |
-|  - Virtual Mouse: Emits EV_REL, REL_WHEEL_HI_RES, EV_KEY via /dev/uinput|
-+-------------------------------------------------------------------------+
-```
+The project is based on the LSM6DSOX IMU sensor, whose primary task is providing real-time data from a 3-axis accelerometer and a 3-axis gyroscope to the ESP32-S3 via I2C. The ESP32-S3 packages the data into a packet and sends it over UDP to a computer, where all the "heavy" computations (filtering, pointer movement, etc.) take place in a Python client. All of this comes together in our "air-mouse" device, which wirelessly controls the cursor through hand rotation and movement.
 
 ---
 
-## Hardware Pinout
+## 2. Components
 
-| Component | Pin / Function | ESP32-S3 GPIO | Note |
-| :--- | :--- | :--- | :--- |
-| **LSM6DSOX IMU** | SDA | GPIO 21 | I2C Data |
-| | SCL | GPIO 20 | I2C Clock |
-| | INT | GPIO 7 | Data-ready interrupt pin |
-| **Buttons** | Clutch / Pan | GPIO 1 | Pull-up input |
-| | Left Click | GPIO 35 | Pull-up input |
-| | Right Click | GPIO 16 | Pull-up input |
-| | Gesture Button | GPIO 3 | Pull-up input |
-| **Analog** | Potentiometer | GPIO 2 | ADC1 analog input |
-| **Status LEDs** | Left Click LED | GPIO 14 | Digital output |
-| | Right Click LED | GPIO 11 | Digital output |
-| | Pan Mode LED | GPIO 40 | Digital output |
-| | Axis Lock LED | GPIO 13 | Digital output |
-| | Overload LED | GPIO 17 | CPU monitor indicator |
-| **RGB LED** | Red | GPIO 6 | System status indicator |
-| | Green | GPIO 5 | System status indicator |
-| | Blue | GPIO 4 | System status indicator |
+- ESP32-S3 development board
+- 6-axis IMU LSM6DSOX
+- 4x Push buttons ("clutch", left click, right click, gestures)
+- 5x LEDs
+- RGB LED
+- Analog potentiometer for adjusting motion sensitivity
 
 ---
 
-## Quickstart (Makefile Commands)
+## 3. Hardware Assembly
 
-The project includes a [Makefile](file:///home/mai/Documents/FRI/L2/VIN/VIN%20PROJEKT/esp32-s3_airmouse/Makefile) to streamline firmware deployment and client operation.
+The circuit is connected according to the scheme in the table:
 
-Configuration parameters can be set in a local untracked `.env` file (see [.env.example](file:///home/mai/Documents/FRI/L2/VIN/VIN%20PROJEKT/esp32-s3_airmouse/.env.example)) or passed as CLI arguments:
-
-```bash
-# 1. Flash Jaguar VM to ESP32-S3 with Wi-Fi credentials
-make flash WIFI_SSID="MySSID" WIFI_PASSWORD="MyPassword"
-
-# 2. Run firmware on ESP32-S3 over Wi-Fi via Jaguar
-make esp
-# Or specify a device:
-make esp DEVICE=lost-moment
-
-# 3. Start host Python AirMouse client
-make client
-# Or pass custom IP and flags:
-make client IP=192.168.5.126 ARGS="--sensitivity 40.0"
-```
-
-### Available Targets
-
-| Command | Description | Parameters & Defaults |
+| Component | Pin / Function | ESP32-S3 GPIO |
 | :--- | :--- | :--- |
-| `make esp` | Run firmware on ESP32-S3 via Jaguar | `DEVICE=` (optional device name or address) |
-| `make flash` | Flash Jaguar VM with Wi-Fi credentials | `WIFI_SSID`, `WIFI_PASSWORD`, `PORT=/dev/ttyACM0`, `CHIP=esp32s3`, `BAUD=921600` |
-| `make client` | Launch Python virtual mouse driver | `IP=192.168.5.126` (optional), `CLIENT_PORT=8889`, `ARGS=` |
-| `make compile` | Compile standalone `main.snapshot` | Output: `main.snapshot` |
-| `make scan` | Scan for online Jaguar devices | |
-| `make help` | Show target summary | |
+| LSM6DSOX | SDA | GPIO 21 |
+| LSM6DSOX | SCL | GPIO 20 |
+| LSM6DSOX | INT (data-ready) | GPIO 7 |
+| Clutch button | pull-up input | GPIO 1 |
+| Left click | pull-up input | GPIO 35 |
+| Right click | pull-up input | GPIO 16 |
+| Gesture button | pull-up input | GPIO 3 |
+| Potentiometer | ADC1 | GPIO 2 |
+| Left/Right click LED | output | GPIO 14 / 11 |
+| Pan / Axis lock LED | output | GPIO 40 / 13 |
+| Overload LED | output | GPIO 17 |
+| RGB LED (R/G/B) | output | GPIO 6 / 5 / 4 |
+
+All modules (buttons, LEDs, IMU, etc.) are connected to the ESP32. The device itself is assembled on a breadboard, powered by a portable power bank.
+
+![Device assembly on breadboard](img/breadboard.jpg)
 
 ---
 
-## Pipeline Features & Configuration
+## 4. System Operation
 
-All default tuning constants are defined in [client/config.py](file:///home/mai/Documents/FRI/L2/VIN/VIN%20PROJEKT/esp32-s3_airmouse/client/config.py):
+The system is divided into two parts: the ESP32-S3 handles data acquisition and transmission, while the Python program on the client side handles processing and cursor movement.
 
-- **Adaptive 1-Euro Filtering**: Dynamically adjusts cutoff frequency based on movement speed to filter resting hand tremors while maintaining low latency during fast flicks.
-- **Dynamic Click Slowdown**: Briefly dampens cursor sensitivity upon button down to prevent unwanted cursor displacement during physical clicks.
-- **2D Pan & Scroll Mode**: Holding the clutch button activates 2D scrolling. Motion is integrated using a leaky signed relative displacement model that locks to a single dominant axis (vertical or horizontal) to prevent diagonal jitter.
-- **Kinetic Inertia**: Provides continuous velocity decay gliding after releasing scroll gestures.
-- **Hardware Potentiometer Sensitivity**: Real-time analog knob scaling mapping a cubic curve across the ADC input range.
+### 4.1 Data Acquisition and Transmission (ESP32-S3)
+
+The LSM6DSOX samples the gyroscope and accelerometer at a frequency of 208 Hz. With every new sample, the sensor sends a short pulse to the INT1 pin, to which the ESP32-S3 responds with a single read of all 12 data bytes over I²C (3 gyroscope axes and 3 accelerometer axes, 2 bytes per axis).
+
+![Sensor data readout](img/code_read_sensors.png)
+
+Mouse sensitivity is adjusted via an analog potentiometer, which the ESP32-S3 reads via the ADC input every 50 ms and transmits its value in every UDP packet. This allows the user to adjust sensitivity on the fly without restarting or reconfiguring the software.
+
+![Potentiometer readout](img/code_potentiometer.png)
+
+Because the data is read in a single transfer, both sensor samples are synchronized in time. The firmware simultaneously subtracts gyroscope offsets, assigns button states (4-bit mask: clutch, left click, right click, gesture) and the potentiometer value, packages everything into a 17-byte UDP packet, and sends it via Wi-Fi to the computer.
+
+![Packaging the UDP packet](img/code_encode_raw_packet.png)
+
+All firmware is written in Toit, a high-level language for ESP32 microcontrollers. Its greatest advantage for this project is built-in concurrency, ensuring that each system subsystem (IMU sampling, button polling, potentiometer, Wi-Fi server) runs in its own "task" without manual interrupt or thread management. The language features automatic memory management and exception handling, which simplifies reliable operation: for example, if an I2C read or Wi-Fi connection fails, the error is caught and the connection is re-established without restarting the device. The high-level nature of Toit thus enables rapid iterations of prototypes with new features.
+
+### 4.3 Data Processing (Python on Computer)
+
+The program receives UDP packets and calculates cursor movement in three steps:
+
+1. **Calibration and Deadzone:** When the hand is stationary, the program continuously adjusts the gyroscope's baseline offset to prevent error accumulation from gyroscope drift. Small tremors below a set threshold are ignored so that the cursor does not "dance" on screen while stationary.
+2. **Filtering:** Each gyroscope axis is processed by a 1-Euro filter: it heavily smooths jitter during slow movements, while automatically adapting and opening up during fast movements to prevent latency. Simultaneously, a Madgwick filter fuses the gyroscope and accelerometer data to calculate hand tilt, ensuring that even if the device is held slightly tilted, it behaves as if oriented correctly.
+3. **Pixel Mapping:** Angular velocity is multiplied by the sensitivity dynamically adjusted via the potentiometer and converted into relative cursor movement. All this data is then translated into mouse movements across the screen.
+
+### 4.4 Operating Modes
+
+| Mode | How to Activate | What Happens |
+| :--- | :--- | :--- |
+| cursor movement | default | 1-Euro filter + acceleration curve during fast motions |
+| repositioning / recalibration | hold clutch | cursor slows down drastically and barely moves, allowing hand repositioning |
+| click (left/right) | click left or right button | left or right click occurs |
+| double click | hold gesture button + left click | double left click occurs |
+| middle button | hold gesture button + right click | middle click occurs |
+| content scrolling | hold clutch + device stationary for 100ms | content scrolling mode activates (vertical/horizontal) |
+| back | hold gesture button + flick left | OS "back" event occurs |
+| forward | hold gesture button + flick right | OS "forward" event occurs |
+
+![Client-side terminal](img/terminal_monitor.png)
+
+The image shows the terminal on the client side displaying all real-time information about the device.
+
+### 4.5 State Indication with LEDs
+
+The device has seven LEDs that communicate system status to the user in real time. Two light up when holding left or right click, while a yellow LED turns on whenever data processing on the microcontroller exceeds the time budget (more than 2.4 ms per sample), indicating an overload. The RGB LED indicates Wi-Fi connection state: orange during startup, blue while waiting for a client, green once connected to the computer, and red on error. Two LEDs (pan and axis lock) are controlled by the client program on the computer. During a calibration gesture, the RGB LED glows purple, and flashes green after successful recalibration.
+
+---
+
+## 5. Links and Demos:
+
+- [Github repository](https://github.com/mairup/esp32-s3_airmouse)
+- Video demonstration
